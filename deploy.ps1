@@ -11,4 +11,4 @@ git commit -m 'deploy'
 git push -f git@github.com:glwlg/glwlg.github.io.git master
 
 Set-Location ..
-Remove-Item dist -Force  -recurse
+Remove-Item dist/.git -Force  -recurse
