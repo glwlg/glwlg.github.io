@@ -26,36 +26,59 @@ module.exports = {
             //     ]
             // }
         ],
-        // sidebar: [
-        //     {
-        //         title: '代理',
-        //         collapsable: true,
-        //         children: [
-        //             '/proxy/nginx/'
-        //         ]
-        //     },
-        //     // ['/proxy/','文章列表'],
-        //     // ['/proxy/nginx/','nginx'],
-        // ]
-        sidebar: {
-            '/nginx/': [
-                {
-                    title: 'nginx',
-                    children: [
-                        'nginx-rewrite',
-                        '简单静态网站',
-                    ]
-                }
-            ],
-            '/proxy/': [
-                {
-                    title: '代理',
-                    children: [
-                        'nginx代理',
-                        'sniproxy',
-                    ]
-                }
-            ]
-        }
+        sidebar: [
+            {
+                title: 'haproxy',
+                collapsable: true,
+                children: [
+                    '/haproxy/安装配置',
+                ]
+            },
+            {
+                title: 'keepalived',
+                collapsable: true,
+                children: [
+                    '/keepalived/安装配置',
+                ]
+            },
+            {
+                title: '代理',
+                collapsable: true,
+                children: [
+                    '/proxy/nginx代理',
+                    '/proxy/sniproxy',
+                ]
+            },
+            {
+                title: 'nginx',
+                collapsable: true,
+                children: [
+                    '/nginx/nginx-rewrite',
+                    '/nginx/简单静态网站'
+                ]
+            },
+            // ['/proxy/','文章列表'],
+            // ['/proxy/nginx/','nginx'],
+        ]
+        // sidebar: {
+        //     '/nginx/': [
+        //         {
+        //             title: 'nginx',
+        //             children: [
+        //                 'nginx-rewrite',
+        //                 '简单静态网站',
+        //             ]
+        //         }
+        //     ],
+        //     '/proxy/': [
+        //         {
+        //             title: '代理',
+        //             children: [
+        //                 'nginx代理',
+        //                 'sniproxy',
+        //             ]
+        //         }
+        //     ]
+        // }
     }
 };
