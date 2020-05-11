@@ -1,0 +1,28 @@
+{
+  "config": {
+    "branch": "master",
+    "cname": "",
+    "domain": "https://glwlg.github.io",
+    "email": "651971564@qq.com",
+    "platform": "github",
+    "privateKey": "",
+    "repository": "glwlg.github.io",
+    "token": "de7bf96851da674f36723cef9a5eac47b8be98c9",
+    "username": "glwlg"
+  },
+  "comment": {
+    "commentPlatform": "gitalk",
+    "disqusSetting": {
+      "api": "",
+      "apikey": "",
+      "shortname": ""
+    },
+    "gitalkSetting": {
+      "clientId": "",
+      "clientSecret": "",
+      "owner": "",
+      "repository": ""
+    },
+    "showComment": false
+  }
+}

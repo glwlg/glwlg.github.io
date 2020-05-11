@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+  <head>
+      <%- include('./_blocks/head', { siteTitle: themeConfig.siteName }) %>
+  </head>
+  <body>
+    <div class="head-top-line"></div>
+    <div class="header-box">
+      <%- include('./_blocks/header', {active: false}) %>
+    </div>
+    <div class="main-continer">
+      <% let scheme = site.customConfig.scheme; %>
+      <div class="section-layout <%= (scheme === 'muse' || scheme === 'mist')?'bg-color':'' %> <%= scheme !==''?scheme:'pisces' %>">
+        <div class="section-layout-wrapper">
+          <%- include('./_blocks/home-sidebar') %>
+            <div class="section-box tag-line">
+              <div class="box-shadow-wrapper">
+                <div class="bg-color">
+                  <section class="section posts-expand">
+                    <%- include('./_blocks/tag-timeline') %>
+                  </section>
+                </div>
+              </div>
+          </div>
+        </div>
+      </div>
+      <%- include('./_blocks/footer') %>
+    </div>
+  </body>
+  <script src="/media/js/motion.js"></script>
+</html>

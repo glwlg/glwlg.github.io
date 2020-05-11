@@ -1,0 +1,80 @@
+<% let scheme = site.customConfig.scheme; let map = new Map(); map.set('/','home'); map.set('/archives', 'archive'); map.set('/tags','tags');map.set('/post/about','user');map.set('/post/skin-update','info-circle'); %>
+<div class=" <%= scheme !==''?scheme:'pisces' %>">
+  <header class="header <%= site.customConfig.headerImg === ''?'bg-color':''%> ">
+    <div class="blog-header box-shadow-wrapper <%= scheme === 'gemini' || scheme === 'pisces'?'bg-color':''%> " id="header">
+      <div class="nav-toggle" id="nav_toggle">
+        <div class="toggle-box">
+          <div class="line line-top"></div>
+          <div class="line line-center"></div>
+          <div class="line line-bottom"></div>
+        </div>
+      </div>
+      <div class="site-meta">       
+        <div class="site-title">
+          <% if (scheme === 'mist') {%>
+            <a href="/" class="">
+              <span class="logo-line-before">
+                <i class=""></i>
+              </span>
+              <span class="main-title"><%= themeConfig.siteName %></span>
+              <span class="logo-line-after">
+                <i class=""></i>
+              </span>
+            </a>  
+          <% } else {%>
+            <a href="/" class="brand">
+              <span><%= themeConfig.siteName %></span>
+            </a>  
+          <% } %>
+        </div>
+        <% if (scheme !== 'mist' && site.customConfig.subTitle) {%>
+          <p class="subtitle"><%= site.customConfig.subTitle %></p>
+        <% } %>
+      </div>
+      <nav class="site-nav" id="site_nav">
+        <ul id="nav_ul">
+          <% menus.forEach(function(menu) { %>
+            <li class="nav-item <%= active && menu.link === link?'nav-item-active':'' %>">
+              <% if (menu.openType === 'External') { %>
+                <a href="<%= menu.link %>" target="_blank">
+                  <i class="fa fa-<%= map.get(menu.link) || 'globe'%>"></i> <%= menu.name %>
+                </a>
+              <% } else { %>
+                <a href="<%= menu.link %>">
+                  <i class="fa fa-<%= map.get(menu.link) || 'globe'%>"></i> <%= menu.name %>
+                </a>
+              <% } %>
+            </li>
+          <% }); %>
+          <li class="nav-item">
+            <a>
+              <i class="fa fa-search"></i> 搜索
+            </a>
+          </li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+</div>
+
+<script type="text/javascript"> 
+ 
+  let showNav = true;
+
+  let navToggle = document.querySelector('#nav_toggle'),
+  siteNav = document.querySelector('#site_nav');
+  
+  function navClick() {
+    let sideBar = document.querySelector('.sidebar');
+    let navUl = document.querySelector('#nav_ul');
+    navToggle.classList.toggle('nav-toggle-active');
+    siteNav.classList.toggle('nav-menu-active');
+    if (siteNav.classList.contains('nav-menu-active')) {
+      siteNav.style = "height: " + (navUl.children.length * 42) +"px !important";
+    } else {
+      siteNav.style = "";
+    }
+  }
+
+  navToggle.addEventListener('click',navClick);  
+</script>

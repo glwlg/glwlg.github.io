@@ -1,0 +1,612 @@
+{
+  "posts": [
+    {
+      "content": "# 什么是Vagrant？\r\n<a href=\"https://www.vagrantup.com/intro/index.html\" target=\"_blank\">Vagrant</a> 是一种管理虚拟机环境的工具。\r\n\r\n拿VirtualBox举例，VirtualBox会开放一个创建虚拟机的接口，Vagrant会利用这个接口创建虚拟机，并且通过Vagrant来管理，配置和自动安装虚拟机。\r\n\r\n\r\n# 安装虚拟机\r\n## VirtualBox\r\nVirtualBox\r\nVagrant本身不提供虚拟机功能，所以需要安装一个，Vagrant支持多种虚拟机（VirtualBox, Hyper-V, VMware ），这里我选择了VirtualBox，<a href=\"https://www.virtualbox.org/wiki/Downloads\" target=\"_blank\">下载地址</a>\r\n\r\n因为使用Vagrant进行虚拟机的管理，所以不需要对VirtualBox进行什么配置，默认安装即可。\r\n我这里只修改了虚拟机的存储位置（默认在C盘），安装好之后打开VirtualBox->管理->全局设定->常规->默认虚拟电脑位置，改成自己喜欢的位置即可，保存之后关闭窗口，后面基本不会再用到了\r\n\r\n\r\n## Vagrant\r\n配置完VirtualBox之后就可以安装Vagrant了，<a href=\"https://www.vagrantup.com/downloads.html\" target=\"_blank\">下载地址</a>\r\n这里我选择windows 64位版，安装过程也很简单，安装完成之后需要重启一次计算机，重启之前可以设置一个环境变量，在命令行运行`setx.exe VAGRANT_HOME \"D:/dev/vbox/boxes\"`，（双引号中路径可以换成自己喜欢的），否则Vagrant会把镜像下载在C盘。\r\n\r\n# 运行虚拟机\r\n重启电脑之后就可以开始准备运行环境了\r\n先打开命令行运行`vagrant box add centos/7`下载centos7的镜像\r\n\r\n下载可能比较慢，先放着，然后找个自己喜欢的地方创建一个文件夹，在里面新建一个`Vagrantfile`文件，打开编辑，输入以下内容：\r\n```\r\n#定义三个虚拟机作为一个集群，分别是c1，c2，c3\r\nVagrant.configure(\"2\") do |config|\r\n#定义一个c1虚拟机\r\n  config.vm.define \"c1\" do |c1|\r\n    #定义c1虚拟机的hostname\r\n    c1.vm.hostname = \"centos-1\"\r\n    #使用centos/7这个镜像\r\n    c1.vm.box = \"centos/7\"\r\n    #定义网络配置，bridge后填写的是网卡名，具体可以看自己的网络配置\r\n    c1.vm.network \"public_network\", bridge: \"Intel(R) Wi-Fi 6 AX200 160MHz\"\r\n    c1.vm.provider \"virtualbox\" do |vb|\r\n    #配置虚拟机的参数\r\n      vb.memory = \"2048\"\r\n      vb.cpus = 2\r\n      vb.name = \"k3s-1\"\r\n    end\r\n  end\r\n  config.vm.define \"c2\" do |c2|\r\n    c2.vm.hostname = \"centos-2\"\r\n    c2.vm.box = \"centos/7\"\r\n    c2.vm.network \"public_network\", bridge: \"Intel(R) Wi-Fi 6 AX200 160MHz\"\r\n    c2.vm.provider \"virtualbox\" do |vb|\r\n      vb.memory = \"2048\"\r\n      vb.cpus = 2\r\n      vb.name = \"k3s-2\"\r\n    end\r\n  end\r\n  config.vm.define \"c3\" do |c3|\r\n    c3.vm.hostname = \"centos-3\"\r\n    c3.vm.box = \"centos/7\"\r\n    c3.vm.network \"public_network\", bridge: \"Intel(R) Wi-Fi 6 AX200 160MHz\"\r\n    c3.vm.provider \"virtualbox\" do |vb|\r\n      vb.memory = \"2048\"\r\n      vb.cpus = 2\r\n      vb.name = \"k3s-3\"\r\n    end\r\n  end\r\nend\r\n ```\r\n 这里只配置了我需要的，其他配置项可以查看<a href=\"https://www.vagrantup.com/docs/index.html\" target=\"_blank\">官方文档</a>\r\n\r\n等镜像下载完成之后，在命令行把路径切换到Vagrantfile所在的路径\r\n运行`vagrant up`\r\nvagrant会按顺序启动三个虚拟机，如果端口没被其他程序占用的话，三个虚拟机的ssh端口应该分别是2222，2200，2201，\r\n可以对照屏幕输出日志，其中有一句`SSH address: 127.0.0.1:2200`\r\n\r\n正常情况应该是三个虚拟机都成功启动，然而我就遇到了非正常情况：\r\n日志卡在`SSH auth method: private key`这一句几分钟之后提示超时，问题不大，比如我在启动c2的时候卡住，只需按顺序运行`vagrant halt c2` `vagrant destroy c2` `vagrant up c2` 来重新创建虚拟机即可，如果c3还没启动，那最后再运行一下`vagrant up`或者`vagrant up c3`。\r\n\r\n启动成功之后，可以运行`vagrant ssh c1` `vagrant ssh c2``vagrant ssh c3`来分别连接三台虚拟机，这里我对三个虚拟机分别进行了免密登录的配置之后就转到xshell进行操作了。\r\n\r\n这样我们就有了一个三台服务器的集群，如果配置够高，可以多加几台。\r\n虚拟机自然是可以随便折腾的，只要Vagrantfile在，一个命令`vagrant up`即可重建。\r\n\r\n\r\n\r\n\r\n",
+      "data": {
+        "title": "用Vagrant搭建虚拟集群",
+        "date": "2020-05-09 16:09:10",
+        "tags": [
+          "docker",
+          "虚拟机"
+        ],
+        "published": true,
+        "hideInList": false,
+        "feature": null,
+        "isTop": false
+      },
+      "isEmpty": false,
+      "excerpt": "",
+      "abstract": "",
+      "fileName": "yong-vagrant-zai-ben-di-yun-xing-k3s"
+    },
+    {
+      "content": "# 替换yum源\r\n```\r\nyum install wget\r\n#备份/etc/yum.repos.d/CentOS-Base.repo\r\nmv /etc/yum.repos.d/CentOS-Base.repo /etc/yum.repos.d/CentOS-Base.repo.backup\r\n#下载163的源\r\nwget http://mirrors.163.com/.help/CentOS7-Base-163.repo\r\nyum clean all\r\nyum makecache\r\n```\r\n\r\n# 同步时间\r\n时间不同步,各种报错!\r\n## 时区修改\r\n```\r\ncp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime\r\n```\r\n## 安装ntpdate\r\n```\r\nyum install ntpdate -y\r\n```\r\n## 手动同步\r\n```\r\nntpdate 1.cn.pool.ntp.org\r\n```\r\n\r\n## 自动同步\r\n### 先手动同步一次\r\n### 启用ntp服务\r\n```\r\n#安装\r\nyum install ntp -y\r\n#修改配置\r\nvim /etc/ntp.conf\r\n\r\ndriftfile /var/lib/ntp/drift\r\nrestrict default nomodify notrap nopeer noquery\r\nrestrict 127.0.0.1 \r\nrestrict ::1\r\nrestrict 172.18.5.0 mask 255.255.0.0 nomodify  #允许指定网段的ip来同步时间\r\nserver 1.cn.pool.ntp.org\r\nserver 2.cn.pool.ntp.org\r\nserver 3.cn.pool.ntp.org\r\nserver 0.cn.pool.ntp.org\r\nrestrict 1.cn.pool.ntp.org nomodify notrap noquery  \r\nrestrict 2.cn.pool.ntp.org nomodify notrap noquery  \r\nrestrict 3.cn.pool.ntp.org nomodify notrap noquery  \r\nrestrict 0.cn.pool.ntp.org nomodify notrap noquery \r\nserver 127.127.1.0\r\nfudge  127.127.1.0 stratum 10\r\nincludefile /etc/ntp/crypto/pw\r\nkeys /etc/ntp/keys\r\n\r\n#开启服务\r\nsystemctl enable ntpd\r\nsystemctl start ntpd\r\n```\r\n\r\n### 定时任务\r\n```\r\n#其他服务器向一台服务器同步\r\nvim /etc/crontab\r\n50  4  *  *  * root ntpdate 172.18.5.102\r\n```\r\n\r\n\r\n# 升级内核\r\n## yum更新\r\n```\r\nyum update -y\r\n```\r\n## 查看内核版本\r\n```\r\ncat /etc/redhat-release\r\n#CentOS Linux release 7.3.1611 (Core)\r\n```\r\n\r\n## 安装\r\n```\r\nrpm --import https://www.elrepo.org/RPM-GPG-KEY-elrepo.org\r\nrpm -Uvh http://www.elrepo.org/elrepo-release-7.0-2.el7.elrepo.noarch.rpm\r\nyum --enablerepo=elrepo-kernel install kernel-ml -y\r\n#查看内核是否安装成功\r\nrpm -qa | grep kernel\r\n```\r\n更新 grub 系统引导文件并重启\r\n```\r\negrep ^menuentry /etc/grub2.cfg | cut -f 2 -d \\'\r\ngrub2-set-default 0  #default 0表示第一个内核设置为默认运行, 选择最新内核就对了\r\nreboot\r\n#开机后 uname -r 看看是不是内核4.9\r\n```\r\n\r\n",
+      "data": {
+        "title": "centos7初始化",
+        "date": "2020-03-03 14:59:53",
+        "tags": [
+          "运维"
+        ],
+        "published": true,
+        "hideInList": false,
+        "feature": null,
+        "isTop": false
+      },
+      "isEmpty": false,
+      "excerpt": "",
+      "abstract": "",
+      "fileName": "centos7-chu-shi-hua"
+    },
+    {
+      "content": "# Docker\r\n```\r\ndocker start $(docker ps -a|grep Exited|awk '{print $1}')\r\n\r\ndocker restart $(docker ps -a|grep Exited|awk '{print $1}')\r\ndocker pause $(docker ps -a|awk '{print $1}')\r\ndocker unpause $(docker ps -a|awk '{print $1}')\r\n\r\n\r\n打出所有容器的日志文件\r\ndocker inspect $(docker ps -a|awk '{print $1}'|sed '1d;$d') | grep json.log |awk '{print $2}'|sed 's/\"//g'|sed 's/,//g'\r\n清空日志\r\ndocker inspect $(docker ps -a|awk '{print $1}'|sed '1d;$d') | grep json.log |awk '{print $2}'|sed 's/\"//g'|sed 's/,//g'|xargs truncate -s 0\r\n\r\n\r\ndocker restart $(docker ps -a|grep service|awk '{print $1}')\r\ndocker restart $(docker ps -a|grep web|awk '{print $1}')\r\n```\r\n> 删除过期镜像\r\n```\r\ndocker rmi $(docker images -a |grep $REGISTRY/$PROJECT|grep '<none>'|awk '{print $3}')\r\n```\r\n\r\n\r\n# Maven\r\n## 单独的jar包入库\r\n### install\r\n```\r\nmvn install:install-file -Dfile=./abc-0.10.0-jar.jar-DgroupId=com.xxxx -DartifactId=artifactid -Dversion=0.0.1-SNAPSHOT -Dpackaging=jar\r\nmvn install:install-file -Dfile=D:/abc-0.10.0-sources.jar -DgroupId=net.spy -DartifactId=artifactid -Dversion=0.0.1-SNAPSHOT -Dpackaging=jar -Dclassifier=sources\r\n```\r\n### deploy\r\n```\r\nmvn deploy:deploy-file -DgroupId=com.xxxx -DartifactId=artifactid -Dversion=0.0.1-SNAPSHOT -Dpackaging=jar -Dfile=./jar-0.0.1-SNAPSHOT.jar -Durl=http://admin:password@ip:18000/nexus/content/repositories/snapshots\r\n```\r\n\r\n\r\n# firewalld\r\n\r\n```\r\nsystemctl start firewalld\r\nfirewall-cmd --zone=public --add-port=31415/tcp --permanent\r\nfirewall-cmd --reload\r\nfirewall-cmd --permanent --add-rich-rule=\"rule family=\"ipv4\" source address=\"172.18.5.246\" port protocol=\"tcp\" port=\"2375\" accept\"\r\nfirewall-cmd --permanent --add-rich-rule=\"rule family=\"ipv4\" source address=\"172.18.5.0/24\" port protocol=\"tcp\" port=\"2377\" accept\"\r\nfirewall-cmd --permanent --remove-rich-rule=\"rule family=\"ipv4\" destination address=\"172.18.5.0/24\" port protocol=\"tcp\" port=\"2375\" reject\"\r\n\r\n\r\nsystemctl start firewalld\r\nfirewall-cmd --zone=public --add-port=31415/tcp --permanent\r\nfirewall-cmd --reload\r\nsystemctl restart \r\n\r\nfirewall-cmd --permanent --zone=public --add-rich-rule=\"rule family=\"ipv4\" source address=\"192.168.10.0/24\" service name=\"ssh\" reject\" \r\nfirewall-cmd --permanent --zone=public --add-rich-rule=\"rule family=\"ipv4\" source address=\"192.168.0.4/24\" port protocol=\"tcp\" port=\"8080\" accept\"\r\nfirewall-cmd --permanent --remove-rich-rule=\"rule family=\"ipv4\" destination address=\"172.18.5.0/24\" port protocol=\"tcp\" port=\"2375\" reject\"\r\nfirewall-cmd --reload\r\n\r\niptables -L -n\r\n\r\nfirewall-cmd --permanent --zone=trusted --add-interface=docker0\r\nfirewall-cmd --permanent --zone=trusted --add-port=xxxx/tcp\r\nfirewall-cmd --permanent --zone=trusted --add-port=2377/tcp\r\nfirewall-cmd --reload\r\n\r\n```\r\n\r\n# iptables\r\n```\r\n在Chain INPUT添加禁止80端口的访问\r\niptables -I INPUT -p tcp --dport 80 -j DROP\r\n允许172.18.5.70访问80\r\niptables -I INPUT -s 172.18.5.70 -p tcp --dport 80 -j ACCEPT\r\n\r\n在Chain DOCKER添加禁止80端口的访问(docker打开的端口要用这个)\r\niptables -I DOCKER -p tcp --dport 80 -j DROP\r\niptables -D DOCKER -p tcp --dport 80 -j DROP\r\n\r\nDROP是等着超时,REJECT是马上返回拒绝(现在用这个)\r\niptables -I DOCKER -p tcp --dport 80 -j REJECT --reject-with tcp-reset\r\niptables -D DOCKER -p tcp --dport 80 -j REJECT --reject-with tcp-reset\r\n允许内网访问\r\niptables -D DOCKER -s 172.18.5.0/24 -p tcp --dport 80 -j ACCEPT\r\niptables -I DOCKER -s 172.18.5.0/24 -p tcp --dport 80 -j ACCEPT\r\n\r\n```\r\n\r\n```\r\n重定向\r\niptables -t nat -A PREROUTING -p tcp -m multiport --dport 80,8080 -j DNAT --to 172.18.5.242:80\r\n\r\niptables -t nat -D PREROUTING -p tcp -m multiport --dport 80,8080 -j DNAT --to 172.18.5.242:80\r\n```\r\n\r\n\r\n#redis\r\n停止所要删除的sentinel\r\n发送一个SENTINEL RESET * 命令给所有其它的sentinel实例，如果你想要重置指定master上面的sentinel，只需要把*号改为特定的名字，注意，需要一个接一个发，每次发送的间隔不低于30秒。\r\n检查一下所有的sentinels是否都有一致的当前sentinel数。使用SENTINEL MASTER mastername 来查询。\r\n\r\n#yum_rpm\r\n```\r\n搜索已安装的\r\nrpm -qa |grep kuber\r\n搜索yum\r\nyum list kubernetes-cni.x86_64  --showduplicates |sort -r\r\n```\r\n\r\n# 压力测试\r\n\r\n```\r\n#请求100次,每次10并发\r\nab -c 10 -n 100 -p fddata.txt -T application/json http://api.xxxx.com/api\r\n```\r\n\r\n# 邮件发送\r\n\r\n```\r\nwget http://caspian.dotconf.net/menu/Software/SendEmail/sendEmail-v1.56.tar.gz\r\ntar -xf sendEmail-v1.56.tar.gz\r\nmv sendEmail-v1.56/sendEmail /usr/local/bin/\r\n\r\nsendEmail -s \"smtp地址\" -xu \"发送人账号\" -xp \"密码\" -f \"来自XX\" -t \"收件人\" -u \"标题\" -m \"内容\" -o message-content-type=text -o message-charset=gb2312\r\n```",
+      "data": {
+        "title": "常用命令",
+        "date": "2020-03-03 14:47:11",
+        "tags": [],
+        "published": true,
+        "hideInList": false,
+        "feature": null,
+        "isTop": true
+      },
+      "isEmpty": false,
+      "excerpt": "",
+      "abstract": "",
+      "fileName": "chang-yong-ming-ling"
+    },
+    {
+      "content": "# step 1: 安装必要的一些系统工具\r\n`sudo yum install -y yum-utils device-mapper-persistent-data lvm2`\r\n# Step 2: 添加软件源信息\r\n`sudo yum-config-manager --add-repo http://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo`\r\n# Step 3: 更新并安装 Docker-CE\r\n```\r\nsudo yum makecache fast\r\nyum list docker-ce.x86_64 --showduplicates | sort -r\r\nsudo yum -y install docker-ce-17.03.2.ce-1.el7.centos\r\n```\r\n\r\n## 如果报错selinux\r\n```\r\nyum install https://download.docker.com/linux/centos/7/x86_64/stable/Packages/docker-ce-selinux-17.03.2.ce-1.el7.centos.noarch.rpm \r\n```\r\n\r\n## docker配置 /etc/docker/daemon.json\r\n```\r\n{\r\n\t\"hosts\": [\r\n\t\t\"tcp://172.16.124.69:2375\",\r\n\t\t\"unix:///var/run/docker.sock\"\r\n\t],\r\n    \"registry-mirrors\": [\r\n\t\"https://xxxxx.mirror.aliyuncs.com\"\r\n\t]\r\n, \"live-restore\": true\r\n}\r\n```\r\nregistry-mirrors：配置一个国内镜像，这里用的是阿里云的地址，每个帐号都有自己的专属地址，免费的\r\n[live-restore说明](/post/docker-pei-zhi/)\r\n",
+      "data": {
+        "title": "centos安装docker",
+        "date": "2020-03-03 10:32:45",
+        "tags": [],
+        "published": true,
+        "hideInList": false,
+        "feature": null,
+        "isTop": false
+      },
+      "isEmpty": false,
+      "excerpt": "",
+      "abstract": "",
+      "fileName": "centos-an-zhuang-docker"
+    },
+    {
+      "content": "## 重启docker而不重启容器\r\n\r\n在`/etc/docker/daemon.json`中添加`\"live-restore\": true`选项  \r\n确保`/usr/lib/systemd/system/docker.service`中有`KillMode=process`\r\n> ps:和swarm冲突",
+      "data": {
+        "title": "docker配置",
+        "date": "2020-03-03 10:30:54",
+        "tags": [
+          "docker"
+        ],
+        "published": true,
+        "hideInList": false,
+        "feature": null,
+        "isTop": false
+      },
+      "isEmpty": false,
+      "excerpt": "",
+      "abstract": "",
+      "fileName": "docker-pei-zhi"
+    },
+    {
+      "content": "> postgresql\r\n```\r\ndocker run --name gitlab-postgresql -d \\\r\n--env 'DB_NAME=gitlabhq_production' \\\r\n--env 'DB_USER=gitlab' --env 'DB_PASS=password' \\\r\n--env 'DB_EXTENSION=pg_trgm' \\\r\n--volume /srv/docker/gitlab/postgresql:/var/lib/postgresql \\\r\n--log-driver json-file --log-opt max-size=100M --log-opt max-file=1 \\\r\n--restart always \\\r\nsameersbn/postgresql:9.6-2\r\n```\r\n> redis\r\n```\r\ndocker run --name gitlab-redis -d \\\r\n--volume /srv/docker/gitlab/redis:/var/lib/redis \\\r\n--log-driver json-file --log-opt max-size=100M --log-opt max-file=1 \\\r\n--restart always \\\r\nsameersbn/redis:latest\r\n```\r\n\r\n> env-file\r\n```\r\nGITLAB_PORT=80\r\nGITLAB_SSH_PORT=22\r\nGITLAB_SECRETS_DB_KEY_BASE=xxxxxxxxxxxxxxxxxxxxxxxx\r\nGITLAB_SECRETS_SECRET_KEY_BASE=xxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\nGITLAB_SECRETS_OTP_KEY_BASE=xxxxxxxxxxxxxxxxxxxxxxxx\r\nGITLAB_HOST=git.xxxx.com\r\nSMTP_ENABLED=true\r\nSMTP_DOMAIN=smtp.mxhichina.com\r\nSMTP_HOST=smtp.mxhichina.com\r\nSMTP_PORT=25\r\nSMTP_USER=devops@xxxx.com\r\nSMTP_PASS=xxxxx\r\nSMTP_AUTHENTICATION=login\r\nSMTP_STARTTLS=true\r\nSMTP_TLS=false\r\nTZ=Asia/Shanghai\r\nGITLAB_TIMEZONE=Beijing\r\n```\r\n> gitlab\r\n```\r\ndocker run --name gitlab -d \\\r\n--link gitlab-postgresql:postgresql --link gitlab-redis:redisio \\\r\n--publish 22:22/tcp --publish 80:80/tcp \\\r\n--env-file /srv/docker/gitlab/env-file \\\r\n--volume /srv/docker/gitlab/gitlab:/home/git/data \\\r\n--log-driver json-file --log-opt max-size=100M --log-opt max-file=1 \\\r\n--restart always \\\r\n--memory 3g \\\r\n--memory-swap 3g \\\r\nsameersbn/gitlab:11.8.0\r\n```\r\n\r\n> 备份\r\n```\r\n#!/bin/bash\r\n#defined\r\nNAME=git-bak`date +%Y%m%d%H%M%S`\r\n\r\ncd /srv/docker/\r\nrm bak-gitlab/* -rf\r\ncp -R gitlab/. bak-gitlab/\r\ntar -czf $NAME.tar.gz  bak-gitlab/\r\nscp -P 31415 $NAME.tar.gz root@172.18.5.229:/srv/docker/gitlab/\r\nrm $NAME.tar.gz -rf\r\n```\r\n\r\n> gitlab-ci-multi-runner\r\n```\r\ngitlab-ci-multi-runner register \\\r\n\t--url \"http://git.xxxx.com/ci\" \\\r\n\t--registration-token \"yWxaTf982qBqjnDU8ZiB\" \\\r\n\t--description \"centos-228\" \\\r\n\t--executor \"shell\" \\\r\n\t--env \"M2_HOME=/home/gitlab-runner/maven/apache-maven-3.3.9\"\r\n```",
+      "data": {
+        "title": "基于docker的gitlab搭建",
+        "date": "2020-03-03 10:20:39",
+        "tags": [
+          "docker",
+          "gitlab"
+        ],
+        "published": true,
+        "hideInList": false,
+        "feature": null,
+        "isTop": false
+      },
+      "isEmpty": false,
+      "excerpt": "",
+      "abstract": "",
+      "fileName": "ji-yu-docker-de-gitlab-da-jian"
+    },
+    {
+      "content": "   \r\n由于服务运行在内网,无法直接访问外网（机房问题）,需要调用外网接口的域名需要通过haproxy代理\r\n之前代理的几个地址都是http协议,这次一个服务需要访问几个https的域名.\r\n按照之前一样的配置发现无法连通,因为haproxy的http模式是不支持https的.\r\n查找之后知道要用tcp模式来代理https,可行.\r\nhttp模式的时候可以直接根据域名来判定代理指向哪里,而tcp无法直接获取域名来判断,\r\n这样只能每个需要代理的域名都占用一台外网机器(因为代理的是相同的端口),临时方案.\r\n最后找到一个haproxy的配置,可以通过req_ssl_sni来判断https的域名,结束",
+      "data": {
+        "title": "haproxy做https代理",
+        "date": "2020-03-03 10:13:07",
+        "tags": [
+          "haproxy",
+          "https",
+          "sni"
+        ],
+        "published": true,
+        "hideInList": false,
+        "feature": null,
+        "isTop": false
+      },
+      "isEmpty": false,
+      "excerpt": "",
+      "abstract": "",
+      "fileName": "haproxy-zuo-https-dai-li"
+    },
+    {
+      "content": "gateway 线程大于 service 提供的线程数 其他消费者可以正常使用\r\nactives 决定最大并发数量\r\nconnections 决定保持的连接数\r\n\r\nactives 1    connections 10  不并发\r\nactives 10   connections 1   并发\r\nactives 10   connections 10  并发\r\n\r\n\r\n1.service的线程打开就不会自动关掉\r\n2.gateway每次订阅都会使service产生新的线程,直到达到设置的上限 (删掉zk上的订阅也没用,service重启也会马上打开累计数量的线程)\r\n   (gateway和service都重启线程才会正常)\r\n3.destroy旧订阅也会使线程增加(增加数为上次订阅的connections)\r\n4.不destroy旧订阅,直接订阅新的不会产生新线程,但是新订阅也不会生效\r\n\r\n5.如果gateway订阅的线程数小于service上限,并发的时候service会一直打开线程直到上限\r\n也就是说dubbo会优先打开新线程,而非复用\r\n\r\n6.如果gateway设置的actives小于service开启的线程,执行操作的线程不会超过actives\r\n\r\n\r\n\r\n默认上限200\r\n\r\n\r\nmain方法中:\r\n循环订阅并且destroy,内存不会上涨(connections大的时候会来不及回收,内存会轻微增加)\r\n循环订阅不destroy,内存按连接数上涨\r\ndubbo会留一些线程维持zk的连接(猜测)",
+      "data": {
+        "title": "网关与dubbo的测试",
+        "date": "2020-03-03 10:09:10",
+        "tags": [
+          "dubbo",
+          "java"
+        ],
+        "published": true,
+        "hideInList": false,
+        "feature": null,
+        "isTop": false
+      },
+      "isEmpty": false,
+      "excerpt": "",
+      "abstract": "",
+      "fileName": "wang-guan-yu-dubbo-de-ce-shi"
+    },
+    {
+      "content": "发现一台服务器cpu使用过高，怀疑中毒\r\n\r\n因为不是面向用户的服务器，所以首先排除已知ip\r\n`netstat -net |awk '{print $5}' | grep -v 14.18.242. | grep -v 172.18.5`\r\n\r\n发现未知ip:52.202.51.185\r\n\r\n打出pid\r\nnetstat -net -p | grep 52.202.51.185\r\n\r\n找出运行来源\r\nps -ef | grep 645\r\n\r\n发现来自Jenkins，是一个挖坑木马利用了Jenkins的漏洞\r\n\r\n定位到木马所在位置，杀掉进程，删除木马文件，关闭Jenkins，关闭Jenkins外网端口，改为通过VPN访问内网端口。\r\n\r\n修改jenkins为内网\r\nvim  /etc/init.d/jenkins\r\n```\r\nJAVA_CMD=\"$JENKINS_JAVA_CMD $JENKINS_JAVA_OPTIONS -DJENKINS_HOME=$JENKINS_HOME -jar $JENKINS_WAR --httpListenAddress=172.18.5.228\"\r\n```\r\n`systemctl daemon-reload`",
+      "data": {
+        "title": "记一次木马来源发现过程",
+        "date": "2020-03-03 10:01:35",
+        "tags": [
+          "jenkins",
+          "运维"
+        ],
+        "published": true,
+        "hideInList": false,
+        "feature": null,
+        "isTop": false
+      },
+      "isEmpty": false,
+      "excerpt": "",
+      "abstract": "",
+      "fileName": "ji-yi-ci-mu-ma-lai-yuan-fa-xian-guo-cheng"
+    },
+    {
+      "content": "1. 匹配字段上面的注释\r\n`\\n[ ]*/[\\*]*\\n[ ]*\\* [\\w+.]*\\n[ ]*\\*/\\n`",
+      "data": {
+        "title": "常用正则",
+        "date": "2020-03-03 09:59:28",
+        "tags": [
+          "正则"
+        ],
+        "published": true,
+        "hideInList": false,
+        "feature": null,
+        "isTop": false
+      },
+      "isEmpty": false,
+      "excerpt": "",
+      "abstract": "",
+      "fileName": "chang-yong-zheng-ze"
+    },
+    {
+      "content": "### emoji\r\n* 有表情的字段,需要将表编码改成utf8mb4的\r\n* java数据源data-source.xml里的bean \"dataSource\"加一个属性  \r\n`<property name=\"connectionInitSqls\" value=\"set names utf8mb4;\"/>`\r\nspringboot：`spring.datasource.druid.connection-init-sqls=set names utf8mb4;`\r\n\r\n如果表里已经有数据了要先把就数据转一下,删表导入是没用的,一定要这样\r\n```\r\nALTER TABLE table_name CONVERT TO CHARACTER SET utf8mb4 collate utf8mb4_unicode_ci\r\n```\r\n",
+      "data": {
+        "title": "mysql表情编码问题",
+        "date": "2020-01-21 15:31:36",
+        "tags": [
+          "mysql"
+        ],
+        "published": true,
+        "hideInList": false,
+        "feature": null,
+        "isTop": false
+      },
+      "isEmpty": false,
+      "excerpt": "",
+      "abstract": "",
+      "fileName": "mysql-biao-qing-bian-ma-wen-ti"
+    },
+    {
+      "content": "## Traefik 是什么\r\n官方介绍：\r\n> Træfɪk 是一个为了让部署微服务更加便捷而诞生的现代HTTP反向代理、负载均衡工具。 它支持多种后台 (Docker, Swarm, Kubernetes, Marathon, Mesos, Consul, Etcd, Zookeeper, BoltDB, Rest API, file…) 来自动化、动态的应用它的配置文件设置。\r\n[官方文档](https://docs.traefik.io/)\r\n> 有个中文文档，但是好像不更新了，建议直接看官方文档\r\n\r\n个人想法：\r\n负载均衡对于一个服务集群是必不可少的一环，而传统的服务器架构每个服务相对确定的运行在指定的机器上，服务的ip是确定的，这个时候只需要用nginx或者haproxy配置一次即可完成负载均衡。docker不一样的地方在于容器内ip的不确定性，这就导致了写死的配置可能无法正确路由到每个服务节点。这就需要我们根据容器的ip，实时动态的修改负载均衡组件的配置。\r\nnginx提供了nginx plus可以支持这一点，但是收费。docker官方有个镜像`dockercloud/haproxy`也可以支持，后来由于不支持http/2和不再维护让我不得不寻找替代品，然后我发现了Traefik，支持http/2，支持acme（可以自动申请域名证书并自动续期），符合需求。\r\n\r\n\r\n## docker运行\r\n\r\n1. 构建\r\n> 主要是修改一下时区\r\n```\r\ndocker build -t my/traefik:1.7-alpine .\r\n\r\nFROM traefik:1.7-alpine\r\nENV TZ=Asia/Shanghai\r\nRUN apk add --no-cache tzdata && \\\r\n    ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone\r\n```\r\n\r\n2. 运行\r\n> traefik.toml看下文\r\n```\r\ndocker run -d \\\r\n-p 80:80 \\\r\n-p 443:443 \\\r\n-p 8580:8580 \\\r\n--name traefik \\\r\n--restart=always \\\r\n-v /srv/docker/traefik/traefik.toml:/etc/traefik/traefik.toml \\\r\n-v /srv/docker/traefik/acme:/etc/traefik/acme \\\r\n-v /srv/docker/traefik/certs:/etc/traefik/certs \\\r\n-v /var/run/docker.sock:/var/run/docker.sock \\\r\n--log-driver json-file --log-opt max-size=100M --log-opt max-file=1 \\\r\nmy/traefik:1.7-alpine\r\ndocker logs -f traefik\r\n```\r\n1. 运行服务\r\n```\r\ndocker run --name nginx-html \\\r\n--label traefik.enable=true \\\r\n--label traefik.basic.frontend.rule=Host:www.abc.com \\\r\n--label traefik.basic.port=80 \\\r\n--label traefik.basic.protocol=http \\\r\n-v /srv/docker/nginx/html/nginx.conf:/etc/nginx/nginx.conf:ro \\\r\n--log-driver json-file --log-opt max-size=100M --log-opt max-file=1 \\\r\n-v /srv/html/home/:/home/html/home \\\r\n-d nginx\r\n```\r\n\r\n\r\n## 配置\r\n\r\n### 自动证书\r\n> 使用acme自动获取`Let's Encrypt`证书\r\n```\r\nlogLevel = \"INFO\"\r\ndefaultEntryPoints = [\"http\",\"https\"]\r\n[entryPoints]\r\n  [entryPoints.traefik]\r\n  address = \":8580\"\r\n  [entryPoints.http]\r\n  address = \":80\"\r\n  compress = true\r\n  [entryPoints.https]\r\n  address = \":443\"\r\n  compress = true\r\n    [entryPoints.https.tls]\r\n\r\n[acme]\r\nemail = \"abc@abc.com\"\r\nstorage = \"/etc/traefik/acme/acme.json\"\r\nentryPoint = \"https\"\r\nacmeLogging = true\r\n  [acme.httpChallenge]\r\n    entryPoint = \"http\"\r\n[[acme.domains]]\r\n   main = \"abc.com\"\r\n   sans = [\"www.abc.com\",\"dev.abc.com\"]\r\n\r\n[api]\r\n  entryPoint = \"traefik\"\r\n  dashboard = true\r\n  debug = false\r\n  [api.statistics]\r\n    recentErrors = 10\r\n\r\n[docker]\r\nendpoint = \"unix:///var/run/docker.sock\"\r\ndomain = \"abc.com\"\r\nwatch = true\r\nexposedByDefault = false\r\nusebindportip = true\r\nswarmMode = false\r\n\r\n[accessLog]\r\nformat = \"json\"\r\n  [accessLog.fields]\r\n  defaultMode = \"keep\"\r\n    [accessLog.fields.names]\r\n    \"ClientAddr\" = \"drop\"\r\n    \"ClientPort\" = \"drop\"\r\n    \"BackendURL\" = \"drop\"\r\n    \"request_Cookie\" = \"drop\"\r\n    [accessLog.fields.headers]\r\n    defaultMode = \"keep\"\r\n      [accessLog.fields.headers.names]\r\n      \"Cookie\" = \"drop\"\r\n```\r\n\r\n### 自带证书\r\n> 自己有证书的情况\r\n```\r\nlogLevel = \"INFO\"\r\ndefaultEntryPoints = [\"http\",\"https\"]\r\n[entryPoints]\r\n  [entryPoints.http]\r\n  address = \":80\"\r\n  [entryPoints.https]\r\n  address = \":443\"\r\n    [entryPoints.https.tls]\r\n      [[entryPoints.https.tls.certificates]]\r\n      CertFile = \"/etc/traefik/certs/xxx.crt\"\r\n      KeyFile = \"/etc/traefik/certs/xxx.key\"\r\n\r\n[web]\r\naddress = \":8580\"\r\n\r\n[docker]\r\nendpoint = \"unix:///var/run/docker.sock\"\r\ndomain = \"abc.com\"\r\nwatch = true\r\nexposedByDefault = false\r\nusebindportip = true\r\nswarmMode = false\r\n```\r\n\r\n### http\r\n> 只使用http，不推荐\r\n```\r\nlogLevel = \"INFO\"\r\ndefaultEntryPoints = [\"http\"]\r\n[entryPoints]\r\n  [entryPoints.http]\r\n  address = \":80\"\r\n\r\n[web]\r\naddress = \":8580\"\r\n\r\n[docker]\r\nendpoint = \"unix:///var/run/docker.sock\"\r\ndomain = \"abc.com\"\r\nwatch = true\r\nexposedByDefault = false\r\nusebindportip = true\r\nswarmMode = false\r\n```\r\n\r\n\r\n### 使用阿里云DNS\r\n\r\n```\r\ndocker run -d \\\r\n-p 80:80 \\\r\n-p 443:443 \\\r\n-p 8580:8580 \\\r\n--name traefik-1.7.2 \\\r\n--restart=always \\\r\n-v /srv/docker/traefik/1.7.2/traefik.toml:/etc/traefik/traefik.toml \\\r\n-v /srv/docker/traefik/1.7.2/acme:/etc/traefik/acme \\\r\n-v /srv/docker/traefik/1.7.2/certs:/etc/traefik/certs \\\r\n-v /var/run/docker.sock:/var/run/docker.sock \\\r\n-e ALICLOUD_ACCESS_KEY='ALICLOUD_ACCESS_KEY' \\\r\n-e ALICLOUD_SECRET_KEY='ALICLOUD_SECRET_KEY' \\\r\n-e ALICLOUD_REGION_ID='cn-hangzhou' \\\r\n--log-driver json-file --log-opt max-size=100M --log-opt max-file=1 \\\r\nmy/traefik:1.7.2-alpine\r\ndocker logs -f traefik\r\n```\r\n#### 配置\r\n```\r\nlogLevel = \"INFO\"\r\ndefaultEntryPoints = [\"http\",\"https\"]\r\n[entryPoints]\r\n  [entryPoints.traefik]\r\n  address = \":8580\"\r\n  [entryPoints.http]\r\n  address = \":80\"\r\n  compress = true\r\n  [entryPoints.https]\r\n  address = \":443\"\r\n  compress = true\r\n    [entryPoints.https.tls]\r\n\r\n[acme]\r\nemail = \"abc@abc.com\"\r\nstorage = \"/etc/traefik/acme/acme.json\"\r\nentryPoint = \"https\"\r\nacmeLogging = true\r\n  [acme.dnsChallenge]\r\n    provider = \"alidns\"\r\n    delayBeforeCheck = 300\r\n[[acme.domains]]\r\n   main = \"*.abc.com\"\r\n   sans = [\"abc.com\"]\r\n\r\n[api]\r\n  entryPoint = \"traefik\"\r\n  dashboard = true\r\n  debug = false\r\n  [api.statistics]\r\n    recentErrors = 10\r\n\r\n[accessLog]\r\nformat = \"json\"\r\n  [accessLog.fields]\r\n  defaultMode = \"keep\"\r\n    [accessLog.fields.names]\r\n    \"ClientAddr\" = \"drop\"\r\n    \"ClientPort\" = \"drop\"\r\n    \"BackendURL\" = \"drop\"\r\n    \"request_Cookie\" = \"drop\"\r\n    [accessLog.fields.headers]\r\n    defaultMode = \"keep\"\r\n      [accessLog.fields.headers.names]\r\n      \"Cookie\" = \"drop\"\r\n```\r\n\r\n\r\n",
+      "data": {
+        "title": "Traefik--docker负载均衡神器",
+        "date": "2020-01-21 14:06:14",
+        "tags": [
+          "docker",
+          "运维",
+          "traefik"
+        ],
+        "published": true,
+        "hideInList": false,
+        "feature": null,
+        "isTop": false
+      },
+      "isEmpty": false,
+      "excerpt": "",
+      "abstract": "",
+      "fileName": "traefik-docker-fu-zai-jun-heng-shen-qi"
+    },
+    {
+      "content": "# 简单加密\r\n\r\n\r\n1. 安装apache工具包\r\n\r\n`apt-get install apache2-utils`  \r\n或  \r\n`yum  -y install httpd-tools`  \r\n\r\n2. 生成密码文件\r\n`htpasswd -c ./passwd test`\r\n\r\n\r\n3. 配置nginx\r\n```\r\nserver {\r\n    listen       8080;\r\n    server_name localhost;\r\n  \r\n\r\n    location / {\r\n        proxy_pass  http://127.0.0.1:8080;\r\n\t\tauth_basic \"Please input password\"; \r\n        auth_basic_user_file /srv/nginx-1.10.3/passwd;\r\n    }\r\n\r\n\r\n}\r\n```",
+      "data": {
+        "title": "Nginx简单加密",
+        "date": "2020-01-21 14:04:17",
+        "tags": [
+          "nginx"
+        ],
+        "published": true,
+        "hideInList": false,
+        "feature": null,
+        "isTop": false
+      },
+      "isEmpty": false,
+      "excerpt": "",
+      "abstract": "",
+      "fileName": "nginx-jian-dan-jia-mi"
+    },
+    {
+      "content": "## 配置说明\r\n\r\n> nginx指定文件路径有两种方式root和alias，这两者的用法区别，使用方法总结了下，方便大家在应用过程中，快速响应。root与alias主要区别在于nginx如何解释location后面的uri，这会使两者分别以不同的方式将请求映射到服务器文件上。\r\n\r\n[root]\r\n语法：root path\r\n默认值：root html\r\n配置段：http、server、location、if\r\n\r\n[alias]\r\n语法：alias path\r\n配置段：location\r\n\r\n> root实例：\r\n```\r\nlocation ^~ /t/ {\r\n     root /www/root/html/;\r\n}\r\n```\r\n如果一个请求的URI是/t/a.html时，web服务器将会返回服务器上的/www/root/html/t/a.html的文件。\r\n\r\n> alias实例：\r\n```\r\nlocation ^~ /t/ {\r\n alias /www/root/html/new_t/;\r\n}\r\n```\r\n如果一个请求的URI是/t/a.html时，web服务器将会返回服务器上的/www/root/html/new_t/a.html的文件。注意这里是new_t，因为alias会把location后面配置的路径丢弃掉，把当前匹配到的目录指向到指定的目录。\r\n",
+      "data": {
+        "title": "Nginx的一些配置说明",
+        "date": "2020-01-21 14:03:20",
+        "tags": [
+          "nginx"
+        ],
+        "published": true,
+        "hideInList": false,
+        "feature": null,
+        "isTop": false
+      },
+      "isEmpty": false,
+      "excerpt": "",
+      "abstract": "",
+      "fileName": "nginx-de-yi-xie-pei-zhi-shuo-ming"
+    },
+    {
+      "content": "用docker起一个nginx挂静态网站非常简单，只需一个简单的配置，运行一个docker容器即可。\r\n1. 创建配置\r\n `vim /srv/docker/nginx/html/nginx.conf`，填入以下内容。\r\n```\r\nuser  nginx;\r\nworker_processes  1;\r\n\r\nerror_log  /var/log/nginx/error.log warn;\r\npid        /var/run/nginx.pid;\r\n\r\nevents {\r\n    worker_connections  1024;\r\n}\r\n\r\nhttp {\r\n    include       /etc/nginx/mime.types;\r\n    default_type  application/octet-stream;\r\n\r\n    log_format  main  '$remote_addr - $remote_user [$time_local] \"$request\" '\r\n                      '$status $body_bytes_sent \"$http_referer\" '\r\n                      '\"$http_user_agent\" \"$http_x_forwarded_for\"';\r\n\r\n    access_log  /var/log/nginx/access.log  main;\r\n\r\n    client_max_body_size 50M;\r\n    client_body_buffer_size 10M;\r\n    \r\n    sendfile        on;\r\n    #tcp_nopush     on;\r\n\r\n    keepalive_timeout  65;\r\n\r\n    #gzip  on;\r\n    \r\n    server {\r\n    listen       80;\r\n    server_name www.abc.com;\r\n    root    /home/html/home;\r\n    \r\n    location / {\r\n        index  index.html;\r\n    }\r\n    }\r\n}\r\n\r\n```\r\n\r\n2. 启动nginx\r\n```\r\ndocker run -d --name html-nginx \\\r\n-p 192.168.1.100:8080:80 \\\r\n-v /srv/docker/nginx/html/nginx.conf:/etc/nginx/nginx.conf:ro \\\r\n-v /srv/html/home/:/home/html/home \\\r\n--log-driver json-file --log-opt max-size=100M --log-opt max-file=1 \\\r\nnginx\r\n```\r\n\r\n",
+      "data": {
+        "title": "Nginx简单静态网站",
+        "date": "2020-01-21 13:46:21",
+        "tags": [
+          "docker",
+          "nginx",
+          "运维"
+        ],
+        "published": true,
+        "hideInList": false,
+        "feature": null,
+        "isTop": false
+      },
+      "isEmpty": false,
+      "excerpt": "",
+      "abstract": "",
+      "fileName": "nginx-jian-dan-jing-tai-wang-zhan"
+    },
+    {
+      "content": "## 同步时间\r\n> 部署一台服务器，最好先把时间同步一下，以免出现问题\r\n1. 安装ntpdate\r\n`yum install ntpdate`\r\n2. 修改时区\r\n`cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime`\r\n3. 同步时间\r\n`ntpdate 1.cn.pool.ntp.org`\r\n4. 定时同步\r\n可以把同步命令加到定时任务里，例如centos可以编辑`/etc/crontab`，添加如下文本：\r\n`50  4  *  *  * root ntpdate 1.cn.pool.ntp.org`\r\n\r\n## 内网同步\r\n> 有些物理机房，内网机器无法直接访问外网，可以通过一台外网服务器做同步：\r\n1. 外网机器安装ntp\r\n`yum install ntp -y`\r\n2. 修改ntp配置\r\n`vim /etc/ntp.conf`\r\n```\r\ndriftfile /var/lib/ntp/drift\r\nrestrict default nomodify notrap nopeer noquery\r\nrestrict 127.0.0.1 \r\nrestrict ::1\r\nrestrict 172.18.5.0 mask 255.255.0.0 nomodify\r\nserver 1.cn.pool.ntp.org\r\nserver 2.cn.pool.ntp.org\r\nserver 3.cn.pool.ntp.org\r\nserver 0.cn.pool.ntp.org\r\nrestrict 1.cn.pool.ntp.org nomodify notrap noquery  \r\nrestrict 2.cn.pool.ntp.org nomodify notrap noquery  \r\nrestrict 3.cn.pool.ntp.org nomodify notrap noquery  \r\nrestrict 0.cn.pool.ntp.org nomodify notrap noquery \r\nserver 127.127.1.0\r\nfudge  127.127.1.0 stratum 10\r\nincludefile /etc/ntp/crypto/pw\r\nkeys /etc/ntp/keys\r\n```\r\n3. 启动ntp\r\n```\r\nsystemctl enable ntpd\r\nsystemctl start ntpd\r\n```\r\n\r\n4. 配置内网机器同步\r\n> 这里`172.18.5.102`就是上面那台外网机的内网ip了\r\n```\r\n50  4  *  *  * root ntpdate 172.18.5.102\r\n```\r\n",
+      "data": {
+        "title": "服务器时间同步",
+        "date": "2020-01-21 11:30:30",
+        "tags": [
+          "运维"
+        ],
+        "published": true,
+        "hideInList": false,
+        "feature": null,
+        "isTop": false
+      },
+      "isEmpty": false,
+      "excerpt": "",
+      "abstract": "",
+      "fileName": "fu-wu-qi-shi-jian-tong-bu"
+    },
+    {
+      "content": "## 设置代理\r\n```\r\ngit config --global https.proxy http://127.0.0.1:1081\r\ngit config --global http.proxy http://127.0.0.1:1081\r\n\r\n取消代理\r\ngit config --global --unset http.proxy \r\ngit config --global --unset https.proxy\r\n```\r\n\r\n## 批量替换提交人\r\n\r\n1. 拉取代码\r\n`git clone --bare http://abc@git.xxx.com/abcd/abcde.git`  \r\n2. 替换\r\n```\r\ngit filter-branch -f --env-filter '\r\nOLD_EMAIL=\"qwe@xxx.com\"\r\nCORRECT_NAME=\"abc\"\r\nCORRECT_EMAIL=\"abc@xxx.com\"\r\nif [ \"$GIT_COMMITTER_EMAIL\" = \"$OLD_EMAIL\" ]\r\nthen\r\n    export GIT_COMMITTER_NAME=\"$CORRECT_NAME\"\r\n    export GIT_COMMITTER_EMAIL=\"$CORRECT_EMAIL\"\r\nfi\r\nif [ \"$GIT_AUTHOR_EMAIL\" = \"$OLD_EMAIL\" ]\r\nthen\r\n    export GIT_AUTHOR_NAME=\"$CORRECT_NAME\"\r\n    export GIT_AUTHOR_EMAIL=\"$CORRECT_EMAIL\"\r\nfi\r\n' --tag-name-filter cat -- --branches --tags\r\n\r\n\r\n\r\ngit filter-branch -f --env-filter '\r\nOLD_EMAIL=\"qwe@xxx.com\"\r\nCORRECT_NAME=\"abc\"\r\nCORRECT_EMAIL=\"abc@xxx.com\"\r\nif [[ \"a5a8cddde2b671e2ac3fe424d13aa76b7c923f59\" =~ \"$GIT_COMMIT\" ]]\r\nthen\r\n    export GIT_COMMITTER_NAME=\"$CORRECT_NAME\"\r\n    export GIT_COMMITTER_EMAIL=\"$CORRECT_EMAIL\"\r\nfi\r\nif [[ \"a5a8cddde2b671e2ac3fe424d13aa76b7c923f59\" =~ \"$GIT_COMMIT\" ]]\r\nthen\r\n    export GIT_AUTHOR_NAME=\"$CORRECT_NAME\"\r\n    export GIT_AUTHOR_EMAIL=\"$CORRECT_EMAIL\"\r\nfi\r\n' --tag-name-filter cat -- --branches --tags\r\n```\r\n3. push\r\n` git push --force --tags origin 'refs/heads/*'` ",
+      "data": {
+        "title": "一些Git命令和配置",
+        "date": "2020-01-21 11:26:09",
+        "tags": [
+          "git"
+        ],
+        "published": true,
+        "hideInList": false,
+        "feature": null,
+        "isTop": false
+      },
+      "isEmpty": false,
+      "excerpt": "",
+      "abstract": "",
+      "fileName": "yi-xie-git-ming-ling-he-pei-zhi"
+    },
+    {
+      "content": "# tablesorter.js\r\n[github](https://github.com/Mottie/tablesorter)\r\n[文档地址](https://mottie.github.io/tablesorter/docs/index.html)\r\n##css\r\n```   \r\n<link rel=\"stylesheet\" href=\"/admin/media/js/plugins/tablesorter/css/theme.blue.css\">\r\n```\r\n##js\r\n```\r\n<script src=\"$baseLink/admin/media/js/plugins/tablesorter/js/jquery.tablesorter.js\"></script>\r\n<script src=\"$baseLink/admin/media/js/plugins/tablesorter/js/jquery.tablesorter.widgets.min.js\"></script>\r\n<script src=\"$baseLink/admin/media/js/plugins/tablesorter/js/extras/jquery.tablesorter.pager.min.js\"></script>\r\n```\r\n## 排序功能\r\n排序功能是这个插件的主要功能\r\n\r\n```\r\n$(\".orderTable\").tablesorter({\r\n        theme: 'blue',\r\n        widthFixed: true,\r\n        sortList: [[0, 1], [1, 0]]\r\n    });\r\n```\r\n>说明:\r\nsortList:初始化的默认排序,第一位数字是第几列,第二位数字是排序方式(正序,倒序)\r\n\r\n\r\n##搜索\r\n```\r\n<input type=\"text\" class=\"form-control input-sm m-b-xs search\" data-column=\"all\" placeholder=\"搜索...\">\r\n\r\n$(\".orderTable\").tablesorter({\r\n        widgets: [\"filter\"],\r\n        widgetOptions: {\r\n            filter_external: '.search',\r\n            filter_columnFilters: false\r\n        }\r\n    });\r\n    \r\n如果搜索没有过滤,添加样式\r\n<style>\r\n        .filtered{\r\n            display: none;\r\n        }\r\n</style>\r\n```\r\n>说明:\r\ndata-column:指定可搜索的列\r\nwidgets:插件,这里只用了filter插件\r\nfilter_external:绑定input元素到filter插件\r\nfilter_columnFilters:是否在每一列上面添加搜索框\r\n\r\n##分页\r\n```\r\n<div id=\"pager\" class=\"pager btn-group\">\r\n    <button type=\"button\" class=\"btn btn-white first\">\r\n        <i class=\"fa fa-fast-backward\"></i>\r\n    </button>\r\n    <button type=\"button\" class=\"btn btn-white prev\">\r\n        <i class=\"fa fa-chevron-left\"></i>\r\n    </button>\r\n    <select class=\"form-control gotoPage\" style=\"width: 70px;display: unset;float: left;\">\r\n        <option selected=\"selected\" value=\"1\">1</option>\r\n    </select>\r\n    <button type=\"button\" class=\"btn btn-white next\">\r\n        <i class=\"fa fa-chevron-right\"></i>\r\n    </button>\r\n    <button type=\"button\" class=\"btn btn-white last\">\r\n        <i class=\"fa fa-fast-forward\"></i>\r\n    </button>\r\n    <select class=\"form-control pagesize\" style=\"width: 70px;display: unset;float: left;\">\r\n        <option selected=\"selected\" value=\"10\">10</option>\r\n        <option value=\"20\">25</option>\r\n        <option value=\"30\">50</option>\r\n        <option value=\"40\">100</option>\r\n    </select>\r\n</div>\r\n\r\npagerOptions = {\r\n        container: $(\".pager\"),\r\n        savePages: true\r\n    };\r\n\r\n$(\".orderTable\").tablesorter({\r\n        theme: 'blue'\r\n    }).tablesorterPager(pagerOptions);\r\n```\r\n>说明:\r\nsavePages:保存分页选择",
+      "data": {
+        "title": "JQuery表格排序",
+        "date": "2020-01-21 11:23:29",
+        "tags": [
+          "jquery"
+        ],
+        "published": true,
+        "hideInList": false,
+        "feature": null,
+        "isTop": false
+      },
+      "isEmpty": false,
+      "excerpt": "",
+      "abstract": "",
+      "fileName": "jquery-biao-ge-pai-xu"
+    },
+    {
+      "content": "# jni\r\nJava可以通过JNI（Java Native Interface）来调用本地库，从而解决一些需要使用C/C++来提高效率但却需要使用JAVA调用的场景，例如opencv库编写的图像处理函数，需要使用spark等大数据框架来调用。\r\n\r\n## 关于\r\n演示一个Hello world的C++通过java调用的过程，系统环境为linux，编译工具使用g++，java版本为jdk1.8。\r\nJNI调用C/C++基本步骤很简单：\r\n\r\n* java代码中声明带有native修饰的类方法，该native方法只是在java中进行声明，而不进行实现，在需要调用navtive方法之前进行system.loadLibrary(“xxx”)，然后通过类调用方法xxx即可\r\n* 使用javah从java的class文件生成与native函数相应的头文件\r\n* 通过引用含有native方法声明的头文件，采用C++编写native方法的实现，并将其编译为动态链接库\r\n* 然后正常对java编译并执行即可\r\n下面进行详细分析\r\n\r\n## Java代码\r\nJava代码如下：\r\n```\r\n//文件名为hello.java\r\npublic class hello\r\n{\r\n    public native void helloWorld();  //声明本地库中的函数\r\n    public static void main(String[] args) {\r\n        System.loadLibrary(\"helloWorld\"); //载入本地库\r\n        hello t = new hello();\r\n        t.helloWorld();  //调用本地库中的函数\r\n    }\r\n}\r\n```\r\n注意，如果本地库中有多个函数，只需要调用一次`System.loadLibrary`即可\r\n调用库中只需要写库的名字，windows下不需要添加后缀`.dll`，linux下不需要添加前面的lib和后缀`.so`\r\n此时可以直接使用`javac hello.java`编译生成`class`字节码，因为此时实际上java编译器并不会去查看是否已经有了函数`helloWorld`的实现。\r\n\r\n## 生成头文件\r\n运行以下命令生成头文件\r\n\r\n```\r\njavah hello\r\n```\r\n很多教程中提及此命令执行之前需要先使用`javac`对代码编译，其实可以直接使用`javah`来从java源代码生成头文件，`javah`会自动生成临时的`class`文件（该`class`文件不会在源文件夹中保存），然后再生成头文件。我通常是直接生成头文件，最后再编译`java`源代码为`class`，以避免虽时可能需要修改`java`源代码。\r\n注意，不需要添加后缀`.java`，因为它实际上是从class文件生成的头文件，然后文件夹中会生成头文件hello.h，内容如下：\r\n```\r\n/* DO NOT EDIT THIS FILE - it is machine generated */\r\n#include <jni.h>\r\n/* Header for class hello */\r\n\r\n#ifndef _Included_hello\r\n#define _Included_hello\r\n#ifdef __cplusplus\r\nextern \"C\" {\r\n#endif\r\n/*\r\n * Class:     hello\r\n * Method:    helloWorld\r\n * Signature: ()V\r\n */\r\nJNIEXPORT void JNICALL Java_hello_helloWorld\r\n  (JNIEnv *, jobject);\r\n\r\n#ifdef __cplusplus\r\n}\r\n#endif\r\n#endif\r\n```\r\n可以看到在第15、16行有一个名为`Java_hello_helloWorld`的函数声明，其中名称以Java开头，包含了包名、类名和函数名，并以下划线分隔，形如Java_{package_and_classname}_{function_name}(JNI arguments)。后面编写C/C++代码时的函数名字必须与此处一样。\r\n其中的2个参数作用是：\r\n\r\nJNIEnv*：用于引用JNI环境，该指针变量可以访问所有JNI函数\r\njobject：引用this Java对象，也就是可以用来访问当前java调用者\r\n注意该函数被extern \"C\"包围着，是为了告诉C++编译器编译时采用C风格的函数命名协议，而不是C++风格的函数命名协议。因为C++为了支持函数重载，编译时采用一种叫做mangling的方式为每一个重载函数命命名。详细信息可以参见我的另一篇文章C/C++拾遗之extern \"C\"\r\n\r\n该头文件中引用了一个java的头文件jni.h，该头文件所在目录为$JAVA_HOME/include，也就是你的JDK安装目录下面。实际上根据平台的不同，jni.h头文件中还引用了一个名为jni_md.h的头文件，该文件目录为$JAVA_HOME/include/linux\r\n\r\nC/C++代码\r\n引用头文件并编写C++代码实现函数helloWorld：\r\n\r\n```\r\n#include \"hello.h\"\r\n#include <iostream>\r\n\r\nJNIEXPORT void JNICALL Java_hello_helloWorld(JNIEnv *env, jobject obj)\r\n{\r\n    std::cout << \"Hello world!\" << std::endl;\r\n}\r\n```\r\n代码非常简单，只是需要注意函数的声明与原头文件中完全一致\r\n\r\n编译并运行\r\n编译C++代码为动态链接库\r\n\r\n使用以下命令编译C++代码为动态链接库：\r\n\r\n```\r\ng++ -fPIC -shared -o libhelloWorld.so helloWorld.cpp -I/usr/lib/jvm/java-8-oracle/include/ -I/usr/lib/jvm/java-8-oracle/include/linux/\r\n```\r\n注意其中的编译选项：\r\n\r\n* -fPIC选项使编译器在编译阶段生成与位置无关的代码，以使共享库能够在内存中被正确加载，PIC即Position, Independent Code。使用-shared选项时必须有该选项，否则编译期会出错\r\n* -shared编译器生成共享链接库\r\n* -o后面的动态链接库的命名规则必须与linux下的动态链接库一致，即libxxx.so的形式\r\n* -I后面跟的是jni所需要的头文件路径\r\n编译完成后会生成名为libhelloWorld.so的文件\r\n提示，如果是C代码，使用gcc编译时，需要通过-Wl,--add-stdcall-alias向链接器传递链接选项，以避免出现UnsatisfiedLinkError错误。\r\n\r\n## 编译java代码\r\n\r\njava代码直接使用javac编译即可：\r\n\r\n```\r\njavac hello.java\r\n```\r\n## 运行\r\n\r\n注意运行的时候需要手动指定java的库引用路径，或者手动将相应的动态链接库文件拷贝到系统库路径。关于系统库路径的问题，可以参考Linux动态链接库以及链接器相关知识\r\n\r\n```\r\njava  -Djava.library.path=. hello\r\n```\r\n如果以上过程都没有问题，输出应该是：\r\n\r\n```\r\nHello world!\r\n```\r\n\r\n\r\n## 与java包管理结合的JNI\r\n非常简单，正常将java源代码放到相应的包文件夹中，然后重新使用javah生成相应头文件即可。\r\njava代码\r\n新建一个文件夹名为myjni，将hello.java放在该文件夹，并在源代码最前面添加package myjni;\r\njava源代码hello.java：\r\n```\r\npackage myjni;\r\n\r\npublic class hello\r\n{\r\n    public native void helloWorld();\r\n    public static void main(String[] args) {\r\n        System.loadLibrary(\"helloWorld\");\r\n        hello t = new hello();\r\n        t.helloWorld();\r\n    }\r\n}\r\n```\r\n### 编译java代码：\r\n\r\n```\r\njavac myjni/hello.java\r\n```\r\n### 生成头文件\r\n\r\n```\r\njavah -d include myjni.hello\r\n```\r\njavah的-d参数是指定头文件存储路径\r\n此时发现头文件中的函数名字中包括了包名：\r\n\r\n```\r\nJNIEXPORT void JNICALL Java_myjni_hello_helloWorld(JNIEnv *, jobject);\r\n```\r\n### 修改C++代码包含新的头文件\r\nC++源代码如下：\r\n```\r\n#include \"include/myjni_hello.h\"\r\n#include <iostream>\r\n\r\nJNIEXPORT void JNICALL Java_myjni_hello_helloWorld(JNIEnv *env, jobject obj)\r\n{\r\n    std::cout << \"Hello world!\" << std::endl;\r\n}\r\n```\r\n\r\n除了修改头文件之外，其他都不需要变动\r\n\r\n### 编译C++为动态链接库\r\n命令并无变化：\r\n\r\n```\r\ng++ -fPIC -shared -o libhelloWorld.so -I /usr/lib/jvm/java-8-oracle/include/ -I /usr/lib/jvm/java-8-oracle/include/linux/ helloWorld.cpp\r\n```\r\n\r\n### 执行\r\n\r\n```\r\njava -Djava.library.path=. myjni.hello\r\n```\r\n\r\n加上了包名字正常执行即可。\r\n\r\n### 打包为jar并执行\r\n打包命令：\r\n\r\n```\r\njar -cevf myjni.hello myjni.jar myjni\r\n```\r\njar命令用于java打包，参数意义如下：\r\n\r\n* c表示创建jar包\r\n* e代表可执行的类，即含有main方法的类，要带上包名\r\n* v表示显示详细生成过程\r\n* f表示生成的jar包名称\r\n执行jar包：\r\n\r\n```\r\njava -Djava.library.path=. -jar myjni.jar\r\n```\r\n\r\n同样需要注意添加库路径，且库路径选项需要在执行程序名之前\r\n\r\n发现JAVA调用C++库并没有那么复杂，总结来说是只是给java一个函数调用入口即可，具体的函数内部实现可以使用你熟悉的任何C/C++方式进行实现，然后编译成动态链接库给JNI调用就可以了。更多兴趣可以参见进阶内容Java通过JNI调用C/C++动态链接库之参数传递及结果返回\r\n\r\n可能遇到的问题\r\njava.lang.UnsatisfiedLinkError\r\n整个错误提示为：\r\n\r\n```\r\nException in thread \"main\" java.lang.UnsatisfiedLinkError: no helloWorld in java.library.path\r\n        at java.lang.ClassLoader.loadLibrary(ClassLoader.java:1867)\r\n        at java.lang.Runtime.loadLibrary0(Runtime.java:870)\r\n        at java.lang.System.loadLibrary(System.java:1122)\r\n        at hello.main(hello.java:13)\r\n```\r\n\r\n应该是你运行程序时没有指定库路径，注意指定库路径的那个命令行参数必须在所运行的java程序的前面\r\n或者是你生成的动态链接库名称不是libhelloWorld.so",
+      "data": {
+        "title": "jni介绍",
+        "date": "2020-01-21 10:53:27",
+        "tags": [
+          "java"
+        ],
+        "published": true,
+        "hideInList": false,
+        "feature": null,
+        "isTop": false
+      },
+      "isEmpty": false,
+      "excerpt": "",
+      "abstract": "",
+      "fileName": "jni-jie-shao"
+    },
+    {
+      "content": "## 一. 安装Ubuntu\r\n卸载ubuntu  安装  Ubuntu for WSL 18.0.4 LTS  商店搜索 ubuntu  \r\n> 修改root登录 `ubuntu1804.exe config --default-user root`  \r\n以管理员身份运行cmd或者powerShell 然后运行ubuntu  \r\n修改apt-get源`/etc/apt/sources.list`为下面内容  \r\n\r\n```\r\ndeb http://mirrors.aliyun.com/ubuntu/ bionic main restricted universe multiverse\r\ndeb-src http://mirrors.aliyun.com/ubuntu/ bionic main restricted universe multiverse\r\n\r\ndeb http://mirrors.aliyun.com/ubuntu/ bionic-security main restricted universe multiverse\r\ndeb-src http://mirrors.aliyun.com/ubuntu/ bionic-security main restricted universe multiverse\r\n\r\ndeb http://mirrors.aliyun.com/ubuntu/ bionic-updates main restricted universe multiverse\r\ndeb-src http://mirrors.aliyun.com/ubuntu/ bionic-updates main restricted universe multiverse\r\n\r\ndeb http://mirrors.aliyun.com/ubuntu/ bionic-proposed main restricted universe multiverse\r\ndeb-src http://mirrors.aliyun.com/ubuntu/ bionic-proposed main restricted universe multiverse\r\n\r\ndeb http://mirrors.aliyun.com/ubuntu/ bionic-backports main restricted universe multiverse\r\ndeb-src http://mirrors.aliyun.com/ubuntu/ bionic-backports main restricted universe multiverse\r\n```\r\n## 二. 安装docker\r\n1. 更新源  \r\n`sudo apt-get update`\r\n2. 安装基础工具  \r\n`sudo apt-get install apt-transport-https ca-certificates curl gnupg2 software-properties-common`\r\n3. 添加docker源  \r\n```\r\ncurl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -\r\nsudo add-apt-repository \"deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable\"\r\n```\r\n4. 更新源  \r\n`sudo apt-get update`\r\n5. 安装docker  \r\n```\r\napt list -a docker-ce\r\nsudo apt-get install docker-ce=17.09.0~ce-0~ubuntu\r\n```\r\n## 三. 配置\r\n1. 修改docker配置，开启远程docker远程访问\r\n> vim /etc/docker/daemon.json  \r\n```\r\n{\r\n\t\"hosts\": [\r\n\t\t\"tcp://0.0.0.0:2375\",\r\n\t\t\"unix:///var/run/docker.sock\"\r\n\t]\r\n}\r\n```\r\n2. 添加用户到docker用户组  \r\n`sudo usermod -aG docker $USER`\r\n3. 编辑docker启动脚本  \r\n`sudo vim /usr/local/sbin/start_docker.sh`\r\n```\r\n#!/usr/bin/env bash\r\nsudo cgroupfs-mount\r\nsudo service docker start\r\n```\r\n```\r\nsudo chmod +x /usr/local/sbin/start_docker.sh\r\nsudo chmod 755 /usr/local/sbin/start_docker.sh\r\n```\r\n4. 给予当前用户免密运行docker启动脚本  \r\n`sudo vim /etc/sudoers`\r\n```\r\n# Enable docker services to start without sudo\r\n<your username here> ALL=(ALL:ALL) NOPASSWD: /bin/sh /usr/local/sbin/start_docker.sh\r\n```\r\n5. 添加windows任务  \r\nwin+q搜索“任务计划”就可以看到任务计划程序，打开后创建一个任务\r\n![](https://blog.duya.shop/post-images/1579573335157.png)\r\n![](https://blog.duya.shop/post-images/1579573343357.png)\r\n![](https://blog.duya.shop/post-images/1579573349128.png)\r\n命令：`C:\\Windows\\System32\\bash.exe`\r\n参数：`-c \"sudo /bin/sh /usr/local/sbin/start_docker.sh\"`\r\n\r\n6.  重启查看是否成功  \r\n\r\n## 可能出现的问题\r\n1. 容器内无法访问外网\r\n解决：重建docker0网络\r\n```\r\n停止docker\r\niptables -t nat -F\r\nifconfig docker0 down\r\nbrctl delbr docker0\r\n启动docker\r\n```",
+      "data": {
+        "title": "Docker on WSL",
+        "date": "2020-01-21 10:05:32",
+        "tags": [
+          "docker",
+          "wsl"
+        ],
+        "published": true,
+        "hideInList": false,
+        "feature": null,
+        "isTop": false
+      },
+      "isEmpty": false,
+      "excerpt": "",
+      "abstract": "",
+      "fileName": "docker-on-wsl"
+    },
+    {
+      "content": "# 一.基础环境搭建\r\n## 1.1系统配置\r\n\r\n* 在安装之前，需要先做如下准备。两台CentOS 7.3主机如下：\r\n```\r\ncat /etc/hosts\r\n192.168.4.113 node1\r\n192.168.4.8 node2\r\n192.168.4.64 node2\r\n```\r\n* 如果各个主机启用了防火墙，需要开放Kubernetes各个组件所需要的端口，可以查看[Installing kubeadm](https://kubernetes.io/docs/setup/independent/install-kubeadm/)中的”Check required ports”一节。 这里简单起见在各节点禁用防火墙：\r\n```\r\nsystemctl stop firewalld\r\nsystemctl disable firewalld\r\n```\r\n* 创建/etc/sysctl.d/k8s.conf文件，添加如下内容：\r\n```\r\nnet.bridge.bridge-nf-call-ip6tables = 1\r\nnet.bridge.bridge-nf-call-iptables = 1\r\n```\r\n* 执行sysctl -p /etc/sysctl.d/k8s.conf使修改生效。\r\n\r\n* 禁用SELINUX：\r\n```\r\nsetenforce 0\r\n```\r\n```\r\nvim /etc/selinux/config\r\nSELINUX=disabled\r\n```\r\n* Kubernetes 1.8开始要求关闭系统的Swap，如果不关闭，默认配置下kubelet将无法启动。可以通过kubelet的启动参数–fail-swap-on=false更改这个限制。 我们这里关闭系统的Swap:\r\n```\r\nswapoff -a\r\n```\r\n* 修改 /etc/fstab 文件，注释掉 SWAP 的自动挂载，使用free -m确认swap已经关闭。\r\n\r\n* swappiness参数调整，修改/etc/sysctl.d/k8s.conf添加下面一行：\r\n```\r\nvm.swappiness=0\r\n```\r\n* 执行sysctl -p /etc/sysctl.d/k8s.conf使修改生效。\r\n\r\n## 1.2安装Docker\r\n```\r\nyum install -y yum-utils device-mapper-persistent-data lvm2\r\nyum-config-manager \\\r\n    --add-repo \\\r\n    https://download.docker.com/linux/centos/docker-ce.repo\r\n```\r\n* 查看当前的Docker版本：\r\n```\r\nyum list docker-ce.x86_64  --showduplicates |sort -r\r\ndocker-ce.x86_64            17.03.2.ce-1.el7.centos             docker-ce-stable\r\ndocker-ce.x86_64            17.03.1.ce-1.el7.centos             docker-ce-stable\r\ndocker-ce.x86_64            17.03.0.ce-1.el7.centos             docker-ce-stable\r\n```\r\n* Kubernetes 1.8已经针对Docker的1.11.2, 1.12.6, 1.13.1和17.03.2等版本做了验证。 因为我们这里在各节点安装docker的17.03.2版本。\r\n```\r\nyum makecache fast\r\nyum install -y --setopt=obsoletes=0 \\\r\n  docker-ce-17.03.2.ce-1.el7.centos \\\r\n  docker-ce-selinux-17.03.2.ce-1.el7.centos\r\n```\r\n```\r\nsystemctl start docker\r\nsystemctl enable docker\r\n```\r\n* Docker从1.13版本开始调整了默认的防火墙规则，禁用了iptables filter表中FOWARD链，这样会引起Kubernetes集群中跨Node的Pod无法通信，在各个Docker节点执行下面的命令\r\n```\r\niptables -P FORWARD ACCEPT\r\n```\r\n* 可在docker的systemd unit文件中以ExecStartPost加入上面的命令：\r\n```\r\nExecStartPost=/usr/sbin/iptables -P FORWARD ACCEPT\r\n```\r\n```\r\nsystemctl daemon-reload\r\nsystemctl restart docker\r\n```\r\n\r\n## 2.安装kubeadm和kubelet\r\n\r\n* 下面在各节点安装kubeadm和kubelet：\r\n```\r\ncat <<EOF > /etc/yum.repos.d/kubernetes.repo\r\n[kubernetes]\r\nname=Kubernetes\r\nbaseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64\r\nenabled=1\r\ngpgcheck=1\r\nrepo_gpgcheck=1\r\ngpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg\r\n        https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg\r\nEOF\r\n```\r\n* 这里要加代理\r\n```\r\ncurl https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64\r\nyum makecache fast\r\nyum install -y kubelet kubeadm kubectl\r\n\r\n... \r\nInstalled:\r\n  kubeadm.x86_64 0:1.8.0-0     kubectl.x86_64 0:1.8.0-0    kubelet.x86_64 0:1.8.0-0\r\n\r\nDependency Installed:\r\n  kubernetes-cni.x86_64 0:0.5.1-0             socat.x86_64 0:1.7.3.2-2.el7\r\n```\r\n\r\n\r\n* 修改各节点docker的cgroup driver使其和kubelet一致，即修改或创建/etc/docker/daemon.json，加入下面的内容：\r\n```\r\n{\r\n  \"exec-opts\": [\"native.cgroupdriver=systemd\"]\r\n}\r\n```\r\n* 重启docker:\r\n```\r\nsystemctl restart docker\r\nsystemctl status docker\r\n```\r\n* 在各节点开机启动kubelet服务：\r\n```\r\nsystemctl enable kubelet.service\r\n```\r\n\r\n# 二.集群初始化\r\n\r\n## 2.1 etcd集群\r\n* 在三个主节点用docker启动etcd\r\n```\r\ndocker stop etcd && docker rm etcd\r\nrm -rf /var/lib/etcd-cluster\r\nmkdir -p /var/lib/etcd-cluster\r\ndocker run -d \\\r\n--restart always \\\r\n-v /etc/ssl/certs:/etc/ssl/certs \\\r\n-v /var/lib/etcd-cluster:/var/lib/etcd \\\r\n-p 4001:4001 \\\r\n-p 2380:2380 \\\r\n-p 2379:2379 \\\r\n--name etcd \\\r\ngcr.io/google_containers/etcd-amd64:3.0.17 \\\r\netcd --name=etcd0 \\\r\n--advertise-client-urls=http://192.168.4.113:2379,http://192.168.4.113:4001 \\\r\n--listen-client-urls=http://0.0.0.0:2379,http://0.0.0.0:4001 \\\r\n--initial-advertise-peer-urls=http://192.168.4.113:2380 \\\r\n--listen-peer-urls=http://0.0.0.0:2380 \\\r\n--initial-cluster-token=3965193498ef91bf92d78922e31be707 \\\r\n--initial-cluster=etcd0=http://192.168.4.113:2380,etcd1=http://192.168.4.8:2380,etcd2=http://192.168.4.64:2380 \\\r\n--initial-cluster-state=new \\\r\n--auto-tls \\\r\n--peer-auto-tls \\\r\n--data-dir=/var/lib/etcd\r\n```\r\n```\r\ndocker stop etcd && docker rm etcd\r\nrm -rf /var/lib/etcd-cluster\r\nmkdir -p /var/lib/etcd-cluster\r\ndocker run -d \\\r\n--restart always \\\r\n-v /etc/ssl/certs:/etc/ssl/certs \\\r\n-v /var/lib/etcd-cluster:/var/lib/etcd \\\r\n-p 4001:4001 \\\r\n-p 2380:2380 \\\r\n-p 2379:2379 \\\r\n--name etcd \\\r\ngcr.io/google_containers/etcd-amd64:3.0.17 \\\r\netcd --name=etcd1 \\\r\n--advertise-client-urls=http://192.168.4.8:2379,http://192.168.4.8:4001 \\\r\n--listen-client-urls=http://0.0.0.0:2379,http://0.0.0.0:4001 \\\r\n--initial-advertise-peer-urls=http://192.168.4.8:2380 \\\r\n--listen-peer-urls=http://0.0.0.0:2380 \\\r\n--initial-cluster-token=3965193498ef91bf92d78922e31be707 \\\r\n--initial-cluster=etcd0=http://192.168.4.113:2380,etcd1=http://192.168.4.8:2380,etcd2=http://192.168.4.64:2380 \\\r\n--initial-cluster-state=new \\\r\n--auto-tls \\\r\n--peer-auto-tls \\\r\n--data-dir=/var/lib/etcd\r\n```\r\n```\r\ndocker stop etcd && docker rm etcd\r\nrm -rf /var/lib/etcd-cluster\r\nmkdir -p /var/lib/etcd-cluster\r\ndocker run -d \\\r\n--restart always \\\r\n-v /etc/ssl/certs:/etc/ssl/certs \\\r\n-v /var/lib/etcd-cluster:/var/lib/etcd \\\r\n-p 4001:4001 \\\r\n-p 2380:2380 \\\r\n-p 2379:2379 \\\r\n--name etcd \\\r\ngcr.io/google_containers/etcd-amd64:3.0.17 \\\r\netcd --name=etcd2 \\\r\n--advertise-client-urls=http://192.168.4.64:2379,http://192.168.4.64:4001 \\\r\n--listen-client-urls=http://0.0.0.0:2379,http://0.0.0.0:4001 \\\r\n--initial-advertise-peer-urls=http://192.168.4.64:2380 \\\r\n--listen-peer-urls=http://0.0.0.0:2380 \\\r\n--initial-cluster-token=3965193498ef91bf92d78922e31be707 \\\r\n--initial-cluster=etcd0=http://192.168.4.113:2380,etcd1=http://192.168.4.8:2380,etcd2=http://192.168.4.64:2380 \\\r\n--initial-cluster-state=new \\\r\n--auto-tls \\\r\n--peer-auto-tls \\\r\n--data-dir=/var/lib/etcd\r\n```\r\n\r\n## 2.2 kubeadm初始化\r\n* 在node1运行\r\n```\r\nkubeadm init --config=/root/kubeadm-ha/kubeadm-init-v1.8.1.yaml\r\n```\r\n* kubeadm-init-v1.8.1.yaml\r\n```\r\napiVersion: kubeadm.k8s.io/v1alpha1\r\nkind: MasterConfiguration\r\napi:\r\n  advertiseAddress: 192.168.4.113\r\nkubernetesVersion: v1.8.1\r\nnetworking:\r\n  podSubnet: 10.244.0.0/16\r\napiServerCertSANs:\r\n- node1\r\n- node2\r\n- node3\r\n- 192.168.4.113\r\n- 192.168.4.8\r\n- 192.168.4.64\r\n- 192.168.4.2\r\netcd:\r\n  endpoints:\r\n  - http://192.168.4.113:2379\r\n  - http://192.168.4.8:2379\r\n  - http://192.168.4.64:2379\r\n```\r\n* 修改admission-control配置\r\n```\r\nvim /etc/kubernetes/manifests/kube-apiserver.yaml\r\n#    - --admission-control=Initializers,NamespaceLifecycle,LimitRanger,ServiceAccount,PersistentVolumeLabel,DefaultStorageClass,DefaultTolerationSeconds,NodeRestriction,ResourceQuota\r\n    - --admission-control=NamespaceLifecycle,LimitRanger,ServiceAccount,PersistentVolumeLabel,DefaultStorageClass,ResourceQuota,DefaultTolerationSeconds\r\n```\r\n* 重启服务\r\n```\r\nsystemctl restart docker kubelet\r\n```\r\n```\r\nvim ~/.bashrc\r\nexport KUBECONFIG=/etc/kubernetes/admin.conf\r\nsource ~/.bashrc\r\nmkdir -p $HOME/.kube\r\nsudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config\r\nsudo chown $(id -u):$(id -g) $HOME/.kube/config\r\n```\r\n\r\n## 2.3 flannel网络组件安装\r\n### rbac配置\r\n* step1-kube-flannel-rbac-v0.9.0.yml\r\n```\r\n# Create the clusterrole and clusterrolebinding:\r\n# $ kubectl create -f kube-flannel-rbac.yml\r\n# Create the pod using the same namespace used by the flannel serviceaccount:\r\n# $ kubectl create --namespace kube-system -f kube-flannel.yml\r\n---\r\nkind: ClusterRole\r\napiVersion: rbac.authorization.k8s.io/v1beta1\r\nmetadata:\r\n  name: flannel\r\nrules:\r\n  - apiGroups:\r\n      - \"\"\r\n    resources:\r\n      - pods\r\n    verbs:\r\n      - get\r\n  - apiGroups:\r\n      - \"\"\r\n    resources:\r\n      - nodes\r\n    verbs:\r\n      - list\r\n      - watch\r\n  - apiGroups:\r\n      - \"\"\r\n    resources:\r\n      - nodes/status\r\n    verbs:\r\n      - patch\r\n---\r\nkind: ClusterRoleBinding\r\napiVersion: rbac.authorization.k8s.io/v1beta1\r\nmetadata:\r\n  name: flannel\r\nroleRef:\r\n  apiGroup: rbac.authorization.k8s.io\r\n  kind: ClusterRole\r\n  name: flannel\r\nsubjects:\r\n- kind: ServiceAccount\r\n  name: flannel\r\n  namespace: kube-system\r\n```\r\n### flannel配置\r\n* step2-kube-flannel-v0.9.0.yml\r\n```\r\n---\r\napiVersion: v1\r\nkind: ServiceAccount\r\nmetadata:\r\n  name: flannel\r\n  namespace: kube-system\r\n---\r\nkind: ConfigMap\r\napiVersion: v1\r\nmetadata:\r\n  name: kube-flannel-cfg\r\n  namespace: kube-system\r\n  labels:\r\n    tier: node\r\n    app: flannel\r\ndata:\r\n  cni-conf.json: |\r\n    {\r\n      \"name\": \"cbr0\",\r\n      \"type\": \"flannel\",\r\n      \"delegate\": {\r\n        \"isDefaultGateway\": true\r\n      }\r\n    }\r\n  net-conf.json: |\r\n    {\r\n      \"Network\": \"10.244.0.0/16\",\r\n      \"Backend\": {\r\n        \"Type\": \"vxlan\"\r\n      }\r\n    }\r\n---\r\napiVersion: extensions/v1beta1\r\nkind: DaemonSet\r\nmetadata:\r\n  name: kube-flannel-ds\r\n  namespace: kube-system\r\n  labels:\r\n    tier: node\r\n    app: flannel\r\nspec:\r\n  template:\r\n    metadata:\r\n      labels:\r\n        tier: node\r\n        app: flannel\r\n    spec:\r\n      hostNetwork: true\r\n      nodeSelector:\r\n        beta.kubernetes.io/arch: amd64\r\n      tolerations:\r\n      - key: node-role.kubernetes.io/master\r\n        operator: Exists\r\n        effect: NoSchedule\r\n      serviceAccountName: flannel\r\n      containers:\r\n      - name: kube-flannel\r\n        image: quay.io/coreos/flannel:v0.9.0-amd64\r\n        command: [ \"/opt/bin/flanneld\", \"--ip-masq\", \"--kube-subnet-mgr\" , \"--iface-regex=enp0s8|wlp3s0\"]\r\n        securityContext:\r\n          privileged: true\r\n        env:\r\n        - name: POD_NAME\r\n          valueFrom:\r\n            fieldRef:\r\n              fieldPath: metadata.name\r\n        - name: POD_NAMESPACE\r\n          valueFrom:\r\n            fieldRef:\r\n              fieldPath: metadata.namespace\r\n        volumeMounts:\r\n        - name: run\r\n          mountPath: /run\r\n        - name: flannel-cfg\r\n          mountPath: /etc/kube-flannel/\r\n      - name: install-cni\r\n        image: quay.io/coreos/flannel:v0.9.0-amd64\r\n        command: [ \"/bin/sh\", \"-c\", \"set -e -x; cp -f /etc/kube-flannel/cni-conf.json /etc/cni/net.d/10-flannel.conf; while true; do sleep 3600; done\" ]\r\n        volumeMounts:\r\n        - name: cni\r\n          mountPath: /etc/cni/net.d\r\n        - name: flannel-cfg\r\n          mountPath: /etc/kube-flannel/\r\n      volumes:\r\n        - name: run\r\n          hostPath:\r\n            path: /run\r\n        - name: cni\r\n          hostPath:\r\n            path: /etc/cni/net.d\r\n        - name: flannel-cfg\r\n          configMap:\r\n            name: kube-flannel-cfg\r\n\r\n```\r\n* 确认都启动之后再进行下一步\r\n```\r\nkubectl get pods --all-namespaces -o wide\r\n```\r\n\r\n## 2.4 dashboard\r\n### rbac配置\r\nkubernetes-dashboard-admin.rbac.yaml\r\n```\r\n---\r\napiVersion: v1\r\nkind: ServiceAccount\r\nmetadata:\r\n  labels:\r\n    k8s-app: kubernetes-dashboard\r\n  name: kubernetes-dashboard-admin\r\n  namespace: kube-system\r\n  \r\n---\r\napiVersion: rbac.authorization.k8s.io/v1beta1\r\nkind: ClusterRoleBinding\r\nmetadata:\r\n  name: kubernetes-dashboard-admin\r\n  labels:\r\n    k8s-app: kubernetes-dashboard\r\nroleRef:\r\n  apiGroup: rbac.authorization.k8s.io\r\n  kind: ClusterRole\r\n  name: cluster-admin\r\nsubjects:\r\n- kind: ServiceAccount\r\n  name: kubernetes-dashboard-admin\r\n  namespace: kube-system\r\n```\r\n\r\n### dashboard配置\r\nkubernetes-dashboard.yaml\r\n```\r\n# Copyright 2017 The Kubernetes Authors.\r\n#\r\n# Licensed under the Apache License, Version 2.0 (the \"License\");\r\n# you may not use this file except in compliance with the License.\r\n# You may obtain a copy of the License at\r\n#\r\n#     http://www.apache.org/licenses/LICENSE-2.0\r\n#\r\n# Unless required by applicable law or agreed to in writing, software\r\n# distributed under the License is distributed on an \"AS IS\" BASIS,\r\n# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\r\n# See the License for the specific language governing permissions and\r\n# limitations under the License.\r\n\r\n# Configuration to deploy release version of the Dashboard UI compatible with\r\n# Kubernetes 1.7.\r\n#\r\n# Example usage: kubectl create -f <this_file>\r\n\r\n# ------------------- Dashboard Secret ------------------- #\r\n\r\napiVersion: v1\r\nkind: Secret\r\nmetadata:\r\n  labels:\r\n    k8s-app: kubernetes-dashboard\r\n  name: kubernetes-dashboard-certs\r\n  namespace: kube-system\r\ntype: Opaque\r\n\r\n---\r\n# ------------------- Dashboard Service Account ------------------- #\r\n\r\napiVersion: v1\r\nkind: ServiceAccount\r\nmetadata:\r\n  labels:\r\n    k8s-app: kubernetes-dashboard\r\n  name: kubernetes-dashboard\r\n  namespace: kube-system\r\n\r\n---\r\n# ------------------- Dashboard Role & Role Binding ------------------- #\r\n\r\nkind: Role\r\napiVersion: rbac.authorization.k8s.io/v1beta1\r\nmetadata:\r\n  name: kubernetes-dashboard-minimal\r\n  namespace: kube-system\r\nrules:\r\n  # Allow Dashboard to create and watch for changes of 'kubernetes-dashboard-key-holder' secret.\r\n- apiGroups: [\"\"]\r\n  resources: [\"secrets\"]\r\n  verbs: [\"create\", \"watch\"]\r\n- apiGroups: [\"\"]\r\n  resources: [\"secrets\"]\r\n  # Allow Dashboard to get, update and delete 'kubernetes-dashboard-key-holder' secret.\r\n  resourceNames: [\"kubernetes-dashboard-key-holder\", \"kubernetes-dashboard-certs\"]\r\n  verbs: [\"get\", \"update\", \"delete\"]\r\n  # Allow Dashboard to get metrics from heapster.\r\n- apiGroups: [\"\"]\r\n  resources: [\"services\"]\r\n  resourceNames: [\"heapster\"]\r\n  verbs: [\"proxy\"]\r\n\r\n---\r\napiVersion: rbac.authorization.k8s.io/v1beta1\r\nkind: RoleBinding\r\nmetadata:\r\n  name: kubernetes-dashboard-minimal\r\n  namespace: kube-system\r\nroleRef:\r\n  apiGroup: rbac.authorization.k8s.io\r\n  kind: Role\r\n  name: kubernetes-dashboard-minimal\r\nsubjects:\r\n- kind: ServiceAccount\r\n  name: kubernetes-dashboard\r\n  namespace: kube-system\r\n\r\n---\r\n# ------------------- Dashboard Deployment ------------------- #\r\n\r\nkind: Deployment\r\napiVersion: extensions/v1beta1\r\nmetadata:\r\n  labels:\r\n    k8s-app: kubernetes-dashboard\r\n  name: kubernetes-dashboard\r\n  namespace: kube-system\r\nspec:\r\n  replicas: 3\r\n  revisionHistoryLimit: 10\r\n  selector:\r\n    matchLabels:\r\n      k8s-app: kubernetes-dashboard\r\n  template:\r\n    metadata:\r\n      labels:\r\n        k8s-app: kubernetes-dashboard\r\n    spec:\r\n      initContainers:\r\n      - name: kubernetes-dashboard-init\r\n        image: gcr.io/google_containers/kubernetes-dashboard-init-amd64:v1.0.1\r\n        volumeMounts:\r\n        - name: kubernetes-dashboard-certs\r\n          mountPath: /certs\r\n      containers:\r\n      - name: kubernetes-dashboard\r\n        image: gcr.io/google_containers/kubernetes-dashboard-amd64:v1.7.1\r\n        ports:\r\n        - containerPort: 9443\r\n          protocol: TCP\r\n        args:\r\n           - --authentication-mode=token\r\n           - --port=9443\r\n           - --tls-key-file=/certs/dashboard.key\r\n           - --tls-cert-file=/certs/dashboard.crt\r\n          # Uncomment the following line to manually specify Kubernetes API server Host\r\n          # If not specified, Dashboard will attempt to auto discover the API server and connect\r\n          # to it. Uncomment only if the default does not work.\r\n          # - --apiserver-host=http://my-address:port\r\n        volumeMounts:\r\n        - name: kubernetes-dashboard-certs\r\n          mountPath: /certs\r\n          readOnly: true\r\n          # Create on-disk volume to store exec logs\r\n        - mountPath: /tmp\r\n          name: tmp-volume\r\n        livenessProbe:\r\n          httpGet:\r\n            scheme: HTTPS\r\n            path: /\r\n            port: 9443\r\n          initialDelaySeconds: 30\r\n          timeoutSeconds: 30\r\n      volumes:\r\n      - name: kubernetes-dashboard-certs\r\n        secret:\r\n          secretName: kubernetes-dashboard-certs\r\n      - name: tmp-volume\r\n        emptyDir: {}\r\n      serviceAccountName: kubernetes-dashboard\r\n      # Comment the following tolerations if Dashboard must not be deployed on master\r\n      tolerations:\r\n      - key: node-role.kubernetes.io/master\r\n        effect: NoSchedule\r\n      nodeSelector:\r\n        role: master\r\n\r\n---\r\n# ------------------- Dashboard Service ------------------- #\r\n\r\nkind: Service\r\napiVersion: v1\r\nmetadata:\r\n  labels:\r\n    k8s-app: kubernetes-dashboard\r\n  name: kubernetes-dashboard\r\n  namespace: kube-system\r\nspec:\r\n  ports:\r\n    - port: 443\r\n      targetPort: 9443\r\n      nodePort: 30000\r\n      protocol: TCP\r\n  selector:\r\n    k8s-app: kubernetes-dashboard\r\n  type: NodePort\r\n```\r\n* 获取token\r\n```\r\nkubectl -n kube-system get secret | grep kubernetes-dashboard-admin\r\nkubectl describe -n kube-system secret/kubernetes-dashboard-admin-token-pfss5\r\n```\r\n访问192.168.4.113:30000验证\r\n\r\n### heapster组件安装\r\n* 在k8s-master1上允许在master上部署pod，否则heapster会无法部署\r\n```\r\nkubectl taint nodes --all node-role.kubernetes.io/master-\r\n```\r\n* 在k8s-master1上安装heapster组件，监控性能\r\n```\r\nkubectl create -f /root/kubeadm-ha/kube-heapster\r\n```\r\n* 重启服务\r\n```\r\nsystemctl restart docker kubelet\r\n```\r\n\r\n\r\n# 三.master集群高可用设置\r\n\r\n## 3.1 修改配置\r\n* 在node1上把/etc/kubernetes/复制node2、node3\r\n```\r\nscp -r /etc/kubernetes/ k8s-master2:/etc/\r\nscp -r /etc/kubernetes/ k8s-master3:/etc/\r\n```\r\n* 在node2 ,node3上重启kubelet服务，并检查kubelet服务状态为active (running)\r\n```\r\nsystemctl daemon-reload && systemctl restart kubelet\r\n```\r\n```\r\nvim ~/.bashrc\r\nexport KUBECONFIG=/etc/kubernetes/admin.conf\r\nsource ~/.bashrc\r\n```\r\n* 在node2 ,node3检测节点状态，这个时候只能看到node1,因为配置还没改\r\n```\r\nkubectl get nodes -o wide\r\n```\r\n* 修改node2,node3的以下文件,改ip为本机ip\r\n```\r\nvim /etc/kubernetes/manifests/kube-apiserver.yaml\r\nvim /etc/kubernetes/kubelet.conf\r\nvim /etc/kubernetes/admin.conf\r\nvim /etc/kubernetes/controller-manager.conf\r\nvim /etc/kubernetes/scheduler.conf\r\n```\r\n* 重启所有节点服务\r\n```\r\nsystemctl daemon-reload && systemctl restart docker kubelet\r\n```\r\n\r\n## 3.2 验证\r\n\r\n* 这个时候应该有3个节点了\r\n```\r\nkubectl get nodes -o wide\r\nkubectl get pod --all-namespaces -o wide | grep node2\r\n```\r\n* 修改插件容器数量\r\n```\r\nkubectl scale --replicas=3 -n kube-system deployment/kube-dns\r\nkubectl scale --replicas=3 -n kube-system deployment/kubernetes-dashboard\r\nkubectl scale --replicas=3 -n kube-system deployment/heapster\r\nkubectl scale --replicas=3 -n kube-system deployment/monitoring-grafana\r\nkubectl scale --replicas=3 -n kube-system deployment/monitoring-influxdb\r\n\r\nkubectl get pods --all-namespaces -o wide| grep kube-dns\r\nkubectl get pods --all-namespaces -o wide| grep kubernetes-dashboard\r\nkubectl get pods --all-namespaces -o wide| grep heapster\r\nkubectl get pods --all-namespaces -o wide| grep monitoring-grafana\r\nkubectl get pods --all-namespaces -o wide| grep monitoring-influxdb\r\n```\r\n\r\n## 3.3 keepalived安装配置\r\n\r\n* 下面操作在三个节点进行\r\n```\r\n yum install -y keepalived\r\n\r\nsystemctl enable keepalived && systemctl restart keepalived\r\n```\r\n* 备份原配置\r\n```\r\n mv /etc/keepalived/keepalived.conf /etc/keepalived/keepalived.conf.bak\r\n```\r\n* check_apiserver.sh\r\n```\r\nvim /etc/keepalived/check_apiserver.sh\r\n\r\n#!/bin/bash\r\nerr=0\r\nfor k in $( seq 1 10 )\r\ndo\r\n    check_code=$(ps -ef|grep kube-apiserver | wc -l)\r\n    if [ \"$check_code\" = \"1\" ]; then\r\n        err=$(expr $err + 1)\r\n        sleep 5\r\n        continue\r\n    else\r\n        err=0\r\n        break\r\n    fi\r\ndone\r\nif [ \"$err\" != \"0\" ]; then\r\n    echo \"systemctl stop keepalived\"\r\n    /usr/bin/systemctl stop keepalived\r\n    exit 1\r\nelse\r\n    exit 0\r\nfi\r\n\r\nchmod a+x /etc/keepalived/check_apiserver.sh\r\n```\r\n\r\n* 修改配置\r\n* keepalived.conf\r\n```\r\n! Configuration File for keepalived\r\nglobal_defs {\r\n    router_id LVS_DEVEL\r\n}\r\nvrrp_script chk_apiserver {\r\n    script \"/etc/keepalived/check_apiserver.sh\"\r\n    interval 2\r\n    weight -5\r\n    fall 3  \r\n    rise 2\r\n}\r\nvrrp_instance VI_1 {\r\n    state MASTER\r\n    interface enp0s8\r\n    mcast_src_ip 192.168.4.113\r\n    virtual_router_id 51\r\n    priority 102\r\n    advert_int 2\r\n    authentication {\r\n        auth_type PASS\r\n        auth_pass 4be37dc3b4c90194d1600c483e10ad1d\r\n    }\r\n    virtual_ipaddress {\r\n        192.168.4.2\r\n    }\r\n    track_script {\r\n       chk_apiserver\r\n    }\r\n}\r\n```\r\n* 重启服务\r\n```\r\nsystemctl restart keepalived\r\n```\r\n\r\n## 3.4 nginx负载均衡配置\r\n* nginx-default.conf\r\n```\r\nvim /root/kubeadm-ha/nginx-default.conf\r\n\r\nuser  nginx;\r\nworker_processes  1;\r\n\r\nerror_log  /var/log/nginx/error.log warn;\r\npid        /var/run/nginx.pid;\r\n\r\n\r\nevents {\r\n    worker_connections  1024;\r\n}\r\n\r\n\r\nhttp {\r\n    include       /etc/nginx/mime.types;\r\n    default_type  application/octet-stream;\r\n\r\n    log_format  main  '$remote_addr - $remote_user [$time_local] \"$request\" '\r\n                      '$status $body_bytes_sent \"$http_referer\" '\r\n                      '\"$http_user_agent\" \"$http_x_forwarded_for\"';\r\n\r\n    access_log  /var/log/nginx/access.log  main;\r\n\r\n    sendfile        on;\r\n    #tcp_nopush     on;\r\n\r\n    keepalive_timeout  65;\r\n\r\n    #gzip  on;\r\n\r\n    include /etc/nginx/conf.d/*.conf;\r\n}\r\n\r\nstream {\r\n\tupstream apiserver {\r\n\t    server 192.168.4.113:6443 weight=5 max_fails=3 fail_timeout=30s;\r\n\t    server 192.168.4.8:6443 weight=5 max_fails=3 fail_timeout=30s;\r\n\t    server 192.168.4.64:6443 weight=5 max_fails=3 fail_timeout=30s;\r\n\t}\r\n\r\n    server {\r\n        listen 8443;\r\n        proxy_connect_timeout 1s;\r\n        proxy_timeout 3s;\r\n        proxy_pass apiserver;\r\n    }\r\n}\r\n```\r\n* 运行nginx\r\n```\r\ndocker run -d -p 8443:8443 \\\r\n--name nginx-lb \\\r\n--restart always \\\r\n-v /root/kubeadm-ha/nginx-default.conf:/etc/nginx/nginx.conf \\\r\nnginx\r\n```\r\n## 3.5 kube-proxy配置\r\n* 在k8s-master1上修改configmap/kube-proxy的server指向keepalived的虚拟IP地址\r\n```\r\nkubectl edit -n kube-system configmap/kube-proxy\r\nserver: https://192.168.4.2:8443\r\n```\r\n* 在k8s-master1上查看configmap/kube-proxy设置情况\r\n```\r\nkubectl get -n kube-system configmap/kube-proxy -o yaml\r\n```\r\n* 在k8s-master1上删除所有kube-proxy的pod，让proxy重建\r\n```\r\nkubectl get pods --all-namespaces -o wide | grep proxy\r\n```\r\n* 在k8s-master1、k8s-master2、k8s-master3上重启docker kubelet keepalived服务\r\n```\r\nsystemctl restart docker kubelet keepalived\r\n```\r\n\r\n# 四. node节点加入高可用集群设置\r\n\r\n* kubeadm加入高可用集群\r\n* 在k8s-master1上禁止在所有master节点上发布应用\r\n```\r\nkubectl patch node node1 -p '{\"spec\":{\"unschedulable\":true}}'\r\nkubectl patch node node2 -p '{\"spec\":{\"unschedulable\":true}}'\r\nkubectl patch node node3 -p '{\"spec\":{\"unschedulable\":true}}'\r\n```\r\n* 在k8s-master1上查看集群的token\r\n```\r\nkubeadm token list\r\nkubeadm join --token ${TOKEN} ${VIRTUAL_IP}:8443\r\n```\r\n* 默认的token24小时过期,可以重新创建一个\r\n```\r\nkubeadm token create\r\n```",
+      "data": {
+        "title": "k8s高可用集群搭建过程",
+        "date": "2020-01-17 16:03:51",
+        "tags": [
+          "docker",
+          "kubernetes",
+          "k8s"
+        ],
+        "published": true,
+        "hideInList": false,
+        "feature": null,
+        "isTop": false
+      },
+      "isEmpty": false,
+      "excerpt": "",
+      "abstract": "",
+      "fileName": "k8s-gao-ke-yong-ji-qun-da-jian-guo-cheng"
+    },
+    {
+      "content": "# nginx-rewrite\r\n\r\n\r\n## flag\r\n```\r\nlast : 相当于Apache的[L]标记，表示完成rewrite\r\nbreak : 停止执行当前虚拟主机的后续rewrite指令集\r\nredirect : 返回302临时重定向，地址栏会显示跳转后的地址\r\npermanent : 返回301永久重定向，地址栏会显示跳转后的地址\r\n```\r\n\r\n## 普通匹配\r\n```\r\nrewrite '^/(\\w+).html$'  /html/$1.html last;\r\n\r\nrewrite '^/(\\w+).html$'  /qqq/$1-1.html last;\r\n```\r\n\r\n## 入参匹配\r\n```\r\n# ~ 影响优先级\r\nlocation ~ /viewthread.php {\r\n    if ($args ~* \"tid=(.*)&page=(.*)$\") {\r\n       set $key $1;\r\n       set $page $2;\r\n       rewrite '^/viewthread.php(.*)$' /thread-$key-$page-1.html break;\r\n    }\r\n    root   D:/html;\r\n    index  index.html index.htm;\r\n}\r\n\r\n```\r\n\r\n*参考  [https://segmentfault.com/a/1190000002797606](https://segmentfault.com/a/1190000002797606)",
+      "data": {
+        "title": "nginx-rewrite",
+        "date": "2020-01-17 15:59:59",
+        "tags": [
+          "nginx"
+        ],
+        "published": true,
+        "hideInList": false,
+        "feature": null,
+        "isTop": false
+      },
+      "isEmpty": false,
+      "excerpt": "",
+      "abstract": "",
+      "fileName": "nginx-rewrite"
+    },
+    {
+      "content": "# jenkins-docker\r\n\r\n* 让jenkins运行在容器里\r\n  \r\n\r\n## 构建jenkins镜像\r\n* Dockerfile\r\n```\r\nFROM jenkins/jenkins:2.183\r\n\r\nUSER root\r\nRUN echo '' > /etc/apt/sources.list.d/jessie-backports.list \\\r\n  && echo \"deb http://mirrors.aliyun.com/debian jessie main contrib non-free\" > /etc/apt/sources.list \\\r\n  && echo \"deb http://mirrors.aliyun.com/debian jessie-updates main contrib non-free\" >> /etc/apt/sources.list \\\r\n  && echo \"deb http://mirrors.aliyun.com/debian-security jessie/updates main contrib non-free\" >> /etc/apt/sources.list\r\nRUN apt-get update && apt-get install -y libltdl7 && apt-get clean\r\n\r\n##根据实际情况修改docker组号 cat /etc/group\r\nARG dockerGid=994\r\n\r\nRUN echo \"docker:x:${dockerGid}:jenkins\" >> /etc/group \r\nRUN mkdir /home/deploy && chown 1000 /home/deploy && chgrp 1000 /home/deploy\r\n\r\nENV TZ=Asia/Shanghai\r\nRUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone\r\n\r\nUSER jenkins\r\n```\r\n* build  \r\n`docker build -t jenkins:dind .`\r\n>原生jenkins镜像缺少libltdl7,无法正常运行docker\r\n\r\n## 运行\r\n\r\n```\r\ndocker run -d --name jenkins \\\r\n-p 172.16.96.146:8080:8080 \\\r\n-p 172.16.96.146:50000:50000 \\\r\n-v /etc/timezone:/etc/timezone \\\r\n-v /etc/localtime:/etc/localtime \\\r\n-v /srv/docker/jenkins/jenkins_home:/var/jenkins_home \\\r\n-v /srv/docker/jenkins/settings:/var/settings \\\r\n-v /var/run/docker.sock:/var/run/docker.sock \\\r\n-v $(which docker):/usr/bin/docker \\\r\njenkins:dind\r\n```\r\n\r\n## maven\r\n\r\n```\r\ndocker run -t --rm \\\r\n-v $PWD:/usr/src/mymaven \\\r\n-v /home/deploy/.m2/repository6:/home/deploy/.m2/repository6 \\\r\n-v /home/deploy/conf:/home/deploy/conf \\\r\n-v $PWD/target:/usr/src/mymaven/target \\\r\n-v /usr/local/maven/apache-maven-3.3.9/settings.xml:/usr/share/maven/conf/settings.xml \\\r\n-w /usr/src/mymaven \\\r\nmaven:3-jdk-8 mvn package -P json-log -P prod -Dmaven.test.skip=true\r\n```",
+      "data": {
+        "title": "jenkins in docker",
+        "date": "2020-01-15 11:24:37",
+        "tags": [
+          "docker",
+          "jenkins"
+        ],
+        "published": true,
+        "hideInList": false,
+        "feature": null,
+        "isTop": false
+      },
+      "isEmpty": false,
+      "excerpt": "",
+      "abstract": "",
+      "fileName": "jenkins-in-docker"
+    },
+    {
+      "content": "\r\n## 简介\r\n> HAProxy提供高可用性、负载均衡以及基于TCP和HTTP应用的代理，支持虚拟主机，它是免费、快速并且可靠的一种解决方案。HAProxy特别适用于那些负载特大的web站点，这些站点通常又需要会话保持或七层处理。HAProxy运行在时下的硬件上，完全可以支持数以万计的并发连接。并且它的运行模式使得它可以很简单安全的整合进您当前的架构中， 同时可以保护你的web服务器不被暴露到网络上。\r\nHAProxy实现了一种事件驱动、单一进程模型，此模型支持非常大的并发连接数。多进程或多线程模型受内存限制 、系统调度器限制以及无处不在的锁限制，很少能处理数千并发连接。事件驱动模型因为在有更好的资源和时间管理的用户端(User-Space) 实现所有这些任务，所以没有这些问题。此模型的弊端是，在多核系统上，这些程序通常扩展性较差。这就是为什么他们必须进行优化以 使每个CPU时间片(Cycle)做更多的工作。\r\n\r\n## yum安装\r\n```\r\nyum install haproxy -y\r\n```\r\n\r\n## docker安装\r\n```\r\ndocker run -d \\\r\n--publish 443:443/tcp \\\r\n--publish 80:80/tcp \\\r\n--name haproxy \\\r\n-v /root/haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro \\\r\n-v /etc/ssl/certs:/etc/ssl/certs:ro \\\r\nhaproxy:alpine\r\n```\r\n\r\n## 编译安装\r\n\r\n> openssl\r\n```\r\nyum install -y make GCC Perl pcre-devel zlib-devel\r\napt-get install build-essential make g++ libssl-dev\r\n\r\nwget -O /tmp/openssl.tgz https://www.openssl.org/source/openssl-1.0.2-latest.tar.gz\r\ntar -zxf /tmp/openssl.tgz -C /tmp\r\ncd /tmp/openssl-*\r\n./config --prefix=/usr --openssldir=/etc/ssl --libdir=lib no-shared zlib-dynamic\r\nmake\r\nmake install_sw\r\nopenssl version\r\n```\r\n\r\n> haproxy\r\n\r\n```\r\nwget http://fossies.org/linux/misc/haproxy-1.6.9.tar.gz\r\ntar -zxvf haproxy-1.6.9.tar.gz\r\ncd haproxy-1.6.9\r\nmake TARGET=linux2628 ARCH=x86_64 PREFIX=/usr/local/haproxy USE_OPENSSL=yes\r\nmake install PREFIX=/usr/local/haproxy\r\n\r\n#参数说明\r\nTARGET=linux26 #内核版本，使用uname -r查看内核，如：2.6.18-371.el5，此时该参数就为linux26；kernel 大于2.6.28的用：TARGET=linux2628\r\nARCH=x86_64 #系统位数\r\nPREFIX=/usr/local/haprpxy #/usr/local/haprpxy为haprpxy安装路径\r\n```\r\n\r\n## 配置说明\r\n```\r\n### 配置文件主要有：\r\nglobal settings: 全局配置段\r\n  主要用于定义haproxy进程自身的工作特性；\r\nproxies: 代理配置段\r\n  backend: 后端服务器组\r\n  frontend: 定义面向客户的监听的地址和端口，以及关联到的后端服务器组；\r\n  listen: 组合方式直接定义frontend及相关的backend的一种机制；\r\ndefaults: 定义默认配置\r\n#################################################################################\r\ngloab的默认选项：\r\nlog         127.0.0.1 local2  \r\n# 记录日志，此时要借助于本机的rsyslod的日志服务，需要开启udp端口监听\r\nchroot      /var/lib/haproxy\r\npidfile     /var/run/haproxy.pid\r\nmaxconn     4000\r\nuser        haproxy\r\ngroup       haproxy\r\ndaemon\r\nstats socket /var/lib/haproxy/stats\r\n#################################################################################\r\ndefaults配置选项：\r\nmaxconn                 3000   # 最大并发连接数\r\nmode http               #默认的模式mode { tcp|http|health }，tcp是4层，http是7层，health只会返回OK\r\nretries 3               #两次连接失败就认为是服务器不可用，也可以通过后面设置\r\noption redispatch       #当serverId对应的服务器挂掉后，强制定向到其他健康的服务器\r\noption abortonclose     #当服务器负载很高的时候，自动结束掉当前队列处理比较久的链接\r\nmaxconn 51200           #默认的最大连接数\r\ntimeout connect 5000ms  #连接超时\r\ntimeout client 30000ms  #客户端超时\r\ntimeout server 30000ms  #服务器超时\r\ntimeout check 2000ms    #心跳检测超时\r\nlog global\r\noption httplog\r\noption dontlognull\r\noption http-server-close\r\noption forwardfor except 127.0.0.0/8\r\ntimeout http-request 10s\r\ntimeout queue 1m\r\ntimeout http-keep-alive 10s\r\n##################################################################################\r\n两种代理配置方式\r\n1:\r\nfrontend http_frontend\r\n    bind *:80\r\n    mode http\r\n    option httpclose\r\n    option forwardfor\r\n    acl role_1 hdr_beg(host) -i www.test.com\r\n    use_backend backend_1 if role_1\r\n\r\nbackend backend_1\r\n    mode http\r\n    server node1 www.test.com\r\n\r\n2: \r\nlisten smtp \r\nbind 0.0.0.0:25  \r\nmode tcp  \r\nbalance roundrobin  \r\nserver s1 smtp.mxhichina.com\r\n```\r\n\r\n\r\n\r\n",
+      "data": {
+        "title": "Haproxy的安装与配置",
+        "date": "2020-01-01 14:50:35",
+        "tags": [
+          "笔记",
+          "haproxy",
+          "docker"
+        ],
+        "published": true,
+        "hideInList": false,
+        "feature": null,
+        "isTop": false
+      },
+      "isEmpty": false,
+      "excerpt": "",
+      "abstract": "",
+      "fileName": "haproxy-de-an-zhuang-yu-pei-zhi"
+    },
+    {
+      "content": "> 欢迎来到我的小站呀，很高兴遇见你！🤝\r\n\r\n一个不是很专业的全栈工程师的一些笔记，以运维方向为主，主要是一些基于docker的部署，后端java为主，前端vue。\r\n\r\n",
+      "data": {
+        "title": "关于",
+        "date": "2019-01-25 19:09:48",
+        "tags": [],
+        "published": true,
+        "hideInList": true,
+        "feature": null,
+        "isTop": false
+      },
+      "isEmpty": false,
+      "excerpt": "",
+      "abstract": "",
+      "fileName": "about"
+    },
+    {
+      "content": "👏  欢迎使用 **Gridea** ！  \r\n✍️  **Gridea** 一个静态博客写作客户端。你可以用它来记录你的生活、心情、知识、笔记、创意... ... \r\n\r\n<!-- more -->\r\n\r\n[Github](https://github.com/getgridea/gridea)  \r\n[Gridea 主页](https://gridea.dev/)  \r\n[示例网站](http://fehey.com/)\r\n\r\n## 特性👇\r\n📝  你可以使用最酷的 **Markdown** 语法，进行快速创作  \r\n\r\n🌉  你可以给文章配上精美的封面图和在文章任意位置插入图片  \r\n\r\n🏷️  你可以对文章进行标签分组  \r\n\r\n📋  你可以自定义菜单，甚至可以创建外部链接菜单  \r\n\r\n💻  你可以在 **Windows**，**MacOS** 或 **Linux** 设备上使用此客户端  \r\n\r\n🌎  你可以使用 **𝖦𝗂𝗍𝗁𝗎𝖻 𝖯𝖺𝗀𝖾𝗌** 或 **Coding Pages** 向世界展示，未来将支持更多平台  \r\n\r\n💬  你可以进行简单的配置，接入 [Gitalk](https://github.com/gitalk/gitalk) 或 [DisqusJS](https://github.com/SukkaW/DisqusJS) 评论系统  \r\n\r\n🇬🇧  你可以使用**中文简体**或**英语**  \r\n\r\n🌁  你可以任意使用应用内默认主题或任意第三方主题，强大的主题自定义能力  \r\n\r\n🖥  你可以自定义源文件夹，利用 OneDrive、百度网盘、iCloud、Dropbox 等进行多设备同步  \r\n\r\n🌱 当然 **Gridea** 还很年轻，有很多不足，但请相信，它会不停向前 🏃\r\n\r\n未来，它一定会成为你离不开的伙伴\r\n\r\n尽情发挥你的才华吧！\r\n\r\n😘 Enjoy~\r\n",
+      "data": {
+        "title": "Hello Gridea",
+        "date": "2018-12-12 00:00:00",
+        "tags": [
+          "Gridea"
+        ],
+        "published": true,
+        "hideInList": true,
+        "feature": "/post-images/hello-gridea.png",
+        "isTop": false
+      },
+      "isEmpty": false,
+      "excerpt": "",
+      "abstract": "👏  欢迎使用 **Gridea** ！  \r\n✍️  **Gridea** 一个静态博客写作客户端。你可以用它来记录你的生活、心情、知识、笔记、创意... ... \r",
+      "fileName": "hello-gridea"
+    }
+  ],
+  "tags": [
+    {
+      "name": "虚拟机",
+      "slug": "f7qXh-89O",
+      "used": true
+    },
+    {
+      "name": "gitlab",
+      "slug": "IY50XJt9e",
+      "used": true
+    },
+    {
+      "name": "https",
+      "slug": "lzrw4QWg8",
+      "used": true
+    },
+    {
+      "name": "sni",
+      "slug": "qdR6XoSEjS",
+      "used": true
+    },
+    {
+      "name": "dubbo",
+      "slug": "S-Q3Dop-i",
+      "used": true
+    },
+    {
+      "name": "正则",
+      "slug": "ekhq36J-r",
+      "used": true
+    },
+    {
+      "name": "mysql",
+      "slug": "pb1RN4OU4",
+      "used": true
+    },
+    {
+      "name": "traefik",
+      "slug": "-IIdt7r2l",
+      "used": true
+    },
+    {
+      "name": "运维",
+      "slug": "BxCsuFjiP",
+      "used": true
+    },
+    {
+      "name": "git",
+      "slug": "QWq2HlQAK",
+      "used": true
+    },
+    {
+      "name": "jquery",
+      "slug": "wfmK4rNld",
+      "used": true
+    },
+    {
+      "name": "java",
+      "slug": "KFGPG0Wzr",
+      "used": true
+    },
+    {
+      "name": "wsl",
+      "slug": "OcBsLxS_w",
+      "used": true
+    },
+    {
+      "name": "kubernetes",
+      "slug": "LjYZDPN3f",
+      "used": true
+    },
+    {
+      "name": "k8s",
+      "slug": "iZPKpxQR4A",
+      "used": true
+    },
+    {
+      "name": "nginx",
+      "slug": "Z7xTw2Tjh",
+      "used": true
+    },
+    {
+      "name": "Gridea",
+      "slug": "huLHGldpD",
+      "used": true
+    },
+    {
+      "name": "jenkins",
+      "slug": "uz4mnpBCB",
+      "used": true
+    },
+    {
+      "name": "haproxy",
+      "slug": "3B-nORocj",
+      "used": true
+    },
+    {
+      "name": "docker",
+      "slug": "dwvT_Sl49y",
+      "used": true
+    },
+    {
+      "index": -1,
+      "name": "笔记",
+      "slug": "RUd7RUt3w",
+      "used": true
+    }
+  ],
+  "menus": [
+    {
+      "link": "/",
+      "name": "首页",
+      "openType": "Internal"
+    },
+    {
+      "link": "/archives",
+      "name": "归档",
+      "openType": "Internal"
+    },
+    {
+      "link": "/tags",
+      "name": "标签",
+      "openType": "Internal"
+    },
+    {
+      "link": "/post/about",
+      "name": "关于",
+      "openType": "Internal"
+    }
+  ]
+}
