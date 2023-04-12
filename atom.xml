@@ -1,0 +1,871 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+    <id>https://glwlg.top</id>
+    <title>我的笔记</title>
+    <updated>2023-04-12T04:08:31.517Z</updated>
+    <generator>https://github.com/jpmonette/feed</generator>
+    <link rel="alternate" href="https://glwlg.top"/>
+    <link rel="self" href="https://glwlg.top/atom.xml"/>
+    <subtitle>温故而知新</subtitle>
+    <logo>https://glwlg.top/images/avatar.png</logo>
+    <icon>https://glwlg.top/favicon.ico</icon>
+    <rights>All rights reserved 2023, 我的笔记</rights>
+    <entry>
+        <title type="html"><![CDATA[从零开始部署CICD集群]]></title>
+        <id>https://glwlg.top/post/cong-ling-kai-shi-bu-shu-cicd-ji-qun/</id>
+        <link href="https://glwlg.top/post/cong-ling-kai-shi-bu-shu-cicd-ji-qun/">
+        </link>
+        <updated>2022-03-25T09:41:05.000Z</updated>
+        <content type="html"><![CDATA[<h1 id="从零开始部署cicd集群">从零开始部署CICD集群</h1>
+<p>记录一次从零开始部署一个基于docker的CICD集群，用的是centos7系统，涉及到的组件：docker,jenkins,gitlab,traefik,portainer。用了三台虚拟机（c1,c2,c3,其中c1为master节点)以root用户进行操作。</p>
+<p>虚拟机教程可以参考<a href="https://glwlg.github.io/post/yong-vagrant-zai-ben-di-yun-xing-k3s/">这篇</a></p>
+<h2 id="基础环境所有节点">基础环境,所有节点</h2>
+<ol>
+<li>更新系统基础环境<br>
+首先更新一下系统组件，安装一些必备的工具</li>
+</ol>
+<pre><code>yum update -y &amp;&amp; yum -y install vim bash-completion ntpdate wget git net-tools yum-utils &amp;&amp;  source /etc/profile.d/bash_completion.sh
+</code></pre>
+<ol start="2">
+<li>
+<p>同步时间，重要</p>
+<p><code>ntpdate 1.cn.pool.ntp.org</code></p>
+<p>vim /etc/crontab</p>
+<p>添加一行 <code>50 4 * * * root ntpdate [1.cn.pool.ntp.org](http://1.cn.pool.ntp.org/)</code></p>
+</li>
+<li>
+<p>安装docker</p>
+<p><a href="https://docs.docker.com/engine/install/centos/">官方文档</a></p>
+<pre><code>yum-config-manager \
+    --add-repo \
+    https://download.docker.com/linux/centos/docker-ce.repo
+#这里直接安装最新版(19.03.9)，如果需要低版本可以参考官方文档
+yum -y install docker-ce docker-ce-cli containerd.io
+#启用docker服务
+systemctl enable docker
+#启动docker
+systemctl start docker
+
+</code></pre>
+<ul>
+<li>
+<p>镜像加速</p>
+<p>国内网络环境拉去docker镜像比较慢，建议使用阿里云的镜像加速服务，是免费的，到阿里云的‘容器镜像服务’里找到‘镜像加速器’，有文档说明如何配置。</p>
+</li>
+</ul>
+</li>
+<li>
+<p>c1修改ssh端口号，22端口号后面会用到，先把ssh的改掉释放出来<br>
+向SELinux中添加端口：<code>semanage port -a -t ssh_port_t -p tcp 1022</code></p>
+<p><code>vim /etc/ssh/sshd_config</code>修改sshd配置，找到<code>#Port 22</code>这一行，把#去掉，再加一行<code>Port 1022</code></p>
+<p><code>systemctl restart sshd</code>重启sshd，重启没报错的话，用1022端口重新连接c1节点，</p>
+<p>再去把<code>Port 22</code>重新注释掉，再重启sshd，分两次操作是避免第一次重启失败导致无法连接</p>
+<p>ps: 如果用的是vagrant，修改ssh端口之后要去修改Vagrantfile，添加以下两行，否则下次虚拟机无法正常启动</p>
+<pre><code class="language-json">c1.vm.network :forwarded_port, guest: 1022,host: 2021
+c1.ssh.port = 2021
+</code></pre>
+</li>
+</ol>
+<h2 id="docker集群配置">docker集群配置</h2>
+<ol>
+<li>
+<p>初始化集群，c1节点<br>
+<code>docker swarm init --advertise-addr 172.28.128.5</code></p>
+<p><code>--advertise-addr</code>指定一个swarm使用的ip，一般是和其他节点在同一局域网的那个ip</p>
+</li>
+<li>
+<p>加入集群，c2，c3节点<br>
+直接运行上面init之后打印出来的<code>docker swarm join --token ...</code>命令即可</p>
+</li>
+<li>
+<p>部署portainer</p>
+<pre><code class="language-bash">curl -L https://downloads.portainer.io/portainer-agent-stack.yml -o portainer-agent-stack.yml
+docker stack deploy --compose-file=portainer-agent-stack.yml portainer
+</code></pre>
+</li>
+<li>
+<p>部署traefik</p>
+<p>先创建网络 <code>docker network create --driver overlay --attachable router-net</code></p>
+<ul>
+<li>
+<p>traefik主配置</p>
+<p><code>vim /srv/docker/traefik/traefik.yml</code></p>
+<pre><code class="language-yaml">log:
+  level: INFO
+accessLog:
+  format: &quot;common&quot;
+api:
+  dashboard: true
+  insecure: true
+entryPoints:
+  http:
+   address: &quot;:80&quot;
+  gitTcp:
+   address: &quot;:22&quot;
+providers:
+  file:
+    directory: /etc/traefik/config
+  docker:
+    endpoint: &quot;unix:///var/run/docker.sock&quot;
+    swarmMode: true
+    exposedbydefault: false
+</code></pre>
+<p><code>docker config create traefik.yml /srv/docker/traefik/traefik.yml</code></p>
+</li>
+<li>
+<p>gitlab的ssh配置</p>
+<p><code>vim /srv/docker/traefik/traefik_git.yml</code></p>
+<pre><code class="language-yaml">tcp:
+  services:
+    git-tcp-service:
+      loadBalancer:
+        servers:
+        - address: &quot;gitlab:22&quot;
+  routers:
+    git-tcp-router:
+        rule: &quot;HostSNI(`*`)&quot;
+        entryPoints:
+          - &quot;gitTcp&quot;
+        service: git-tcp-service
+
+</code></pre>
+<p><code>docker config create traefik_git.yml /srv/docker/traefik/traefik_git.yml</code></p>
+</li>
+<li>
+<p>路由配置</p>
+<p><code>vim /srv/docker/traefik/traefik_routers.yml</code></p>
+<pre><code class="language-yaml">http:
+  routers:
+    git-router:
+      rule: &quot;Host(`git.local.com`)&quot;
+      service: git-service
+  services:
+    git-service:
+      loadBalancer:
+        servers:
+        - url: &quot;http://gitlab:80&quot;
+</code></pre>
+<p><code>docker config create traefik_routers.yml /srv/docker/traefik/traefik_routers.yml</code></p>
+</li>
+<li>
+<p>运行</p>
+<pre><code class="language-bash">docker service create \
+--name traefik \
+--mode global \
+--constraint=node.role==manager \
+--publish &quot;mode=host,published=80,target=80&quot; \
+--publish &quot;mode=host,published=22,target=22&quot; \
+--publish &quot;mode=host,published=443,target=443&quot; \
+--publish &quot;mode=host,published=8580,target=8080&quot; \
+--config src=traefik.yml,target=&quot;/etc/traefik/traefik.yml&quot;  \
+--config src=traefik_git.yml,target=&quot;/etc/traefik/config/traefik_git.yml&quot;  \
+--config src=traefik_routers.yml,target=&quot;/etc/traefik/config/traefik_routers.yml&quot;  \
+--mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock \
+--network router-net \
+--with-registry-auth \
+--log-driver json-file --log-opt max-size=500M --log-opt max-file=1 \
+traefik:v2.2
+</code></pre>
+</li>
+<li>
+<p>更新配置文件的步骤</p>
+<pre><code class="language-bash">docker service update --config-rm traefik.yml traefik
+docker config rm traefik.yml
+docker config create traefik.yml ./traefik.yml
+docker service update --config-add  src=traefik.yml,target=&quot;/etc/traefik/config/traefik.yml&quot; traefik
+</code></pre>
+</li>
+<li>
+<p>补充说明</p>
+<p>这里traefik启用了swarm模式，所以不能通过自动发现的方式自动路由gitlab（除非gitlab也用docker service运行，这里是run），所以在providers里额外配置了file，以静态配置的形式配置了gitlab的路由，其他类似Jenkins之类的也可以如此配置。</p>
+</li>
+</ul>
+</li>
+</ol>
+<h2 id="gitlab部署c1节点">gitlab部署，c1节点</h2>
+<ol>
+<li>
+<p>首先创建三个文件夹</p>
+<pre><code class="language-bash">mkdir /srv/docker/gitlab/postgresql -p
+mkdir /srv/docker/gitlab/redis
+mkdir /srv/docker/gitlab/gitlab
+
+</code></pre>
+</li>
+<li>
+<p>运行postgresql</p>
+<pre><code class="language-bash">docker run --name gitlab-postgresql -d \
+--env 'DB_NAME=gitlabhq_production' \
+--env 'DB_USER=gitlab' --env 'DB_PASS=password' \
+--env 'DB_EXTENSION=pg_trgm' \
+--net router-net \
+--volume /srv/docker/gitlab/postgresql:/var/lib/postgresql \
+--log-driver json-file --log-opt max-size=100M --log-opt max-file=1 \
+--restart always \
+sameersbn/postgresql:10-2
+</code></pre>
+</li>
+<li>
+<p>运行redis</p>
+<pre><code class="language-bash">docker run --name gitlab-redis -d \
+--net router-net \
+--volume /srv/docker/gitlab/redis:/var/lib/redis \
+--log-driver json-file --log-opt max-size=100M --log-opt max-file=1 \
+--restart always \
+sameersbn/redis:4.0.9-2
+</code></pre>
+</li>
+<li>
+<p>编辑配置文件<br>
+vim /srv/docker/gitlab/env-file<br>
+其中三个SECRETS随机生成，smtp按需配置</p>
+<ul>
+<li>
+<p>env-file</p>
+<pre><code>GITLAB_PORT=80
+GITLAB_SSH_PORT=22
+GITLAB_SECRETS_DB_KEY_BASE=32位随机字符串
+GITLAB_SECRETS_SECRET_KEY_BASE=64位随机字符串
+GITLAB_SECRETS_OTP_KEY_BASE=64位随机字符串
+GITLAB_HOST=git.local.com
+SMTP_ENABLED=true
+SMTP_DOMAIN=smtp.mxhichina.com
+SMTP_HOST=smtp.mxhichina.com
+SMTP_PORT=25
+SMTP_USER=devops@xxxxx.com
+SMTP_PASS=password
+SMTP_AUTHENTICATION=login
+SMTP_STARTTLS=true
+SMTP_TLS=false
+TZ=Asia/Shanghai
+GITLAB_TIMEZONE=Beijing
+DB_HOST=gitlab-postgresql
+DB_NAME=gitlabhq_production
+DB_USER=gitlab
+DB_PASS=password
+REDIS_HOST=gitlab-redis
+
+</code></pre>
+</li>
+</ul>
+</li>
+<li>
+<p>运行gitlab</p>
+<pre><code class="language-bash">docker run --name gitlab -d \
+--net router-net \
+--env-file /srv/docker/gitlab/env-file \
+--volume /srv/docker/gitlab/gitlab:/home/git/data \
+--log-driver json-file --log-opt max-size=100M --log-opt max-file=1 \
+--restart always \
+--memory 3g \
+--memory-swap 3g \
+sameersbn/gitlab:12.10.6
+docker logs -f gitlab
+</code></pre>
+</li>
+</ol>
+<p>打开gitlab页面(<a href="http://git.local.com/">git.local.com</a>)，刚开始会显示502，等一会进去之后会要求修改密码，然后登录管理员帐户，默认邮箱是admin@example.com，进去之后就可以分配帐户创建项目了</p>
+<h2 id="docker镜像仓库部署c1节点">Docker镜像仓库部署，c1节点</h2>
+<p><a href="https://docs.docker.com/registry/">官方文档</a></p>
+<ol>
+<li>
+<p>运行</p>
+<pre><code class="language-yaml">docker run -d \
+-p 5000:5000 \
+--restart=always \
+--name registry \
+-v /srv/docker/registry:/var/lib/registry \
+--log-driver json-file --log-opt max-size=100M --log-opt max-file=1 \
+registry:2
+</code></pre>
+</li>
+<li>
+<p>配置</p>
+<p><code>vim /etc/docker/daemon.json</code> 全节点修改</p>
+<pre><code class="language-json">{
+&quot;registry-mirrors&quot;: [&quot;https://xxxxxxx.mirror.aliyuncs.com&quot;],
+&quot;insecure-registries&quot;:[&quot;172.28.128.5:5000&quot;]
+}
+</code></pre>
+<p><code>systemctl restart docker</code></p>
+</li>
+<li>
+<p>添加一个<a href="https://github.com/kwk/docker-registry-frontend">web管理服务</a>（可选）</p>
+<pre><code class="language-json">docker run \
+-d \
+-e ENV_DOCKER_REGISTRY_HOST=172.28.128.5 \
+-e ENV_DOCKER_REGISTRY_PORT=5000 \
+-p 8081:80 \
+--log-driver json-file --log-opt max-size=100M --log-opt max-file=1 \
+--restart=always \
+konradkleine/docker-registry-frontend:v2
+</code></pre>
+</li>
+</ol>
+<h2 id="jenkins部署c1节点">jenkins部署，c1节点</h2>
+<ol>
+<li>
+<p>创建目录</p>
+<pre><code class="language-bash">mkdir /srv/docker/jenkins/jenkins_home -p
+mkdir /srv/docker/jenkins/settings
+
+</code></pre>
+</li>
+<li>
+<p>运行</p>
+<pre><code class="language-bash">docker run -d --name jenkins \
+-p 8080:8080 \
+-p 50000:50000 \
+-u 0 \
+--restart always \
+--add-host git.local.com:172.28.128.5 \
+--log-driver json-file --log-opt max-size=100M --log-opt max-file=1 \
+-v /srv/docker/jenkins/jenkins_home:/var/jenkins_home:rw \
+-v /srv/docker/jenkins/settings:/var/settings:rw \
+-v /var/run/docker.sock:/var/run/docker.sock \
+-v $(which docker):/usr/bin/docker \
+jenkins/jenkins:lts
+</code></pre>
+</li>
+<li>
+<p>配置<br>
+打开jenkins页面(ip:8080),提示输入密码<br>
+运行以下命令即可看到<br>
+<code>cat /srv/docker/jenkins/jenkins_home/secrets/initialAdminPassword</code><br>
+然后选择配置插件，先选择默认，之后需要的再安装</p>
+</li>
+</ol>
+<h2 id="项目配置">项目配置</h2>
+<h3 id="项目准备">项目准备</h3>
+<p>一共有三个项目要准备</p>
+<ol>
+<li>
+<p>脚本项目</p>
+<p>在gitlab创建一个demo-script项目，用于发布项目，先添加一个脚本  !<br>
+![[update_springboot_traefik_swarm.groovy]]</p>
+</li>
+<li>
+<p>配置文件项目</p>
+<p>创建一个demo-config项目，用于存放不同环境的配置，文件结构就是</p>
+<p>demo-config/demo-service/application.properties #按自己项目配置</p>
+<p>demo-config/maven/maven.xml #maven私库配置，其中localRepository改成/var/.m2/repository</p>
+</li>
+<li>
+<p>服务项目</p>
+<p>这里我用了一个springboot的项目，demo-service，在项目根目录添加一个Dockerfile<br>
+![[Dockerfile]]</p>
+<p>在pom文件添加以下内容，这样结合我的发布脚本，maven编译的时候会取出demo-config里的application.properties文件替换项目里的</p>
+<pre><code class="language-json">&lt;profiles&gt;
+        &lt;profile&gt;
+            &lt;id&gt;configs&lt;/id&gt;
+            &lt;build&gt;
+                &lt;resources&gt;
+                    &lt;resource&gt;
+                        &lt;directory&gt;src/main/resources&lt;/directory&gt;
+                        &lt;excludes&gt;
+                            &lt;exclude&gt;application.properties&lt;/exclude&gt;
+                        &lt;/excludes&gt;
+                    &lt;/resource&gt;
+                    &lt;resource&gt;
+                        &lt;directory&gt;configs/demo-service/&lt;/directory&gt;
+                        &lt;filtering&gt;false&lt;/filtering&gt;
+                    &lt;/resource&gt;
+                &lt;/resources&gt;
+            &lt;/build&gt;
+        &lt;/profile&gt;
+    &lt;/profiles&gt;
+</code></pre>
+</li>
+</ol>
+<h3 id="gitlab配置">gitlab配置</h3>
+<p>首先添加一个deploy key，用于jenkins拉取项目</p>
+<figure data-type="image" tabindex="1"><img src="https://glwlg.top/post-images/1648201376830.png" alt="" loading="lazy"></figure>
+<p>这里需要我们生成一个key</p>
+<pre><code class="language-json">cd /srv/docker/jenkins/jenkins_home/secrets
+ssh-keygen -o -t rsa -b 4096 -C [&quot;email@example.com](mailto:%22email@example.com)&quot;
+#路径设置输入当前目录即可，后面两项可为空
+Enter file in which to save the key (/root/.ssh/id_rsa): ./deploy
+
+生成成功之后复制公钥deploy.pub里的内容填到gitlab
+</code></pre>
+<p>添加deploy key之后要在上面三个项目配置中启用这个key，项目主页→Settings→Repository→Deploy Keys→Privately accessible deploy keys→Enable</p>
+<h3 id="jenkins配置">Jenkins配置</h3>
+<p>打开Jenkins→凭据→系统→全局凭据→添加凭据，类型选择SSH Username with private key，id，Username都输入上一步gitlab设置的title即可，Private Key内容就是上一步生成的deploy文件内容，确定保存。</p>
+<p>打开Jenkins→系统管理→插件管理→可选插件 搜索dingTalk插件，安装钉钉通知插件。（不需要的可以不安装，需要把脚本里的dingTalk代码删掉，否则会报错）</p>
+<h3 id="创建项目">创建项目</h3>
+<p>新建一个流水线类型的项目</p>
+<p>勾选配置项”参数化构建过程“，并添加以下参数</p>
+<p><a href="https://www.notion.so/5e9c4c3193f14f5987da43dbda897e19">参数表</a></p>
+<p>然后拉到下面”流水线“模块，定义切换为Pipeline script from SCM，SCM选择git，填入脚本项目的仓库地址&quot;<a href="mailto:git@git.local.com">git@git.local.com</a>:demo/demo-script.git&quot;,Credentials选择deploy-key，脚本路径修改为&quot;update_springboot_traefik_swarm.groovy&quot;，保存。</p>
+<p>保存之后就可以点击&quot;Build with Parameters&quot;试一下发布了。</p>
+]]></content>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[用Vagrant搭建虚拟集群]]></title>
+        <id>https://glwlg.top/post/yong-vagrant-zai-ben-di-yun-xing-k3s/</id>
+        <link href="https://glwlg.top/post/yong-vagrant-zai-ben-di-yun-xing-k3s/">
+        </link>
+        <updated>2020-05-09T08:09:10.000Z</updated>
+        <content type="html"><![CDATA[<h1 id="什么是vagrant">什么是Vagrant？</h1>
+<p><a href="https://www.vagrantup.com/intro/index.html" target="_blank">Vagrant</a> 是一种管理虚拟机环境的工具。</p>
+<p>拿VirtualBox举例，VirtualBox会开放一个创建虚拟机的接口，Vagrant会利用这个接口创建虚拟机，并且通过Vagrant来管理，配置和自动安装虚拟机。</p>
+<h1 id="安装虚拟机">安装虚拟机</h1>
+<h2 id="virtualbox">VirtualBox</h2>
+<p>VirtualBox<br>
+Vagrant本身不提供虚拟机功能，所以需要安装一个，Vagrant支持多种虚拟机（VirtualBox, Hyper-V, VMware ），这里我选择了VirtualBox，<a href="https://www.virtualbox.org/wiki/Downloads" target="_blank">下载地址</a></p>
+<p>因为使用Vagrant进行虚拟机的管理，所以不需要对VirtualBox进行什么配置，默认安装即可。<br>
+我这里只修改了虚拟机的存储位置（默认在C盘），安装好之后打开VirtualBox-&gt;管理-&gt;全局设定-&gt;常规-&gt;默认虚拟电脑位置，改成自己喜欢的位置即可，保存之后关闭窗口，后面基本不会再用到了</p>
+<h2 id="vagrant">Vagrant</h2>
+<p>配置完VirtualBox之后就可以安装Vagrant了，<a href="https://www.vagrantup.com/downloads.html" target="_blank">下载地址</a><br>
+这里我选择windows 64位版，安装过程也很简单，安装完成之后需要重启一次计算机，重启之前可以设置一个环境变量，在命令行运行<code>setx.exe VAGRANT_HOME &quot;D:/dev/vbox/boxes&quot;</code>，（双引号中路径可以换成自己喜欢的），否则Vagrant会把镜像下载在C盘。</p>
+<h1 id="运行虚拟机">运行虚拟机</h1>
+<p>重启电脑之后就可以开始准备运行环境了<br>
+先打开命令行运行<code>vagrant box add centos/7</code>下载centos7的镜像</p>
+<p>下载可能比较慢，先放着，然后找个自己喜欢的地方创建一个文件夹，在里面新建一个<code>Vagrantfile</code>文件，打开编辑，输入以下内容：</p>
+<pre><code>#定义三个虚拟机作为一个集群，分别是c1，c2，c3
+Vagrant.configure(&quot;2&quot;) do |config|
+#定义一个c1虚拟机
+  config.vm.define &quot;c1&quot; do |c1|
+    #定义c1虚拟机的hostname
+    c1.vm.hostname = &quot;centos-1&quot;
+    #使用centos/7这个镜像
+    c1.vm.box = &quot;centos/7&quot;
+    #定义网络配置，bridge后填写的是网卡名，具体可以看自己的网络配置
+    c1.vm.network &quot;public_network&quot;, bridge: &quot;Intel(R) Wi-Fi 6 AX200 160MHz&quot;
+    c1.vm.provider &quot;virtualbox&quot; do |vb|
+    #配置虚拟机的参数
+      vb.memory = &quot;2048&quot;
+      vb.cpus = 2
+      vb.name = &quot;k3s-1&quot;
+    end
+  end
+  config.vm.define &quot;c2&quot; do |c2|
+    c2.vm.hostname = &quot;centos-2&quot;
+    c2.vm.box = &quot;centos/7&quot;
+    c2.vm.network &quot;public_network&quot;, bridge: &quot;Intel(R) Wi-Fi 6 AX200 160MHz&quot;
+    c2.vm.provider &quot;virtualbox&quot; do |vb|
+      vb.memory = &quot;2048&quot;
+      vb.cpus = 2
+      vb.name = &quot;k3s-2&quot;
+    end
+  end
+  config.vm.define &quot;c3&quot; do |c3|
+    c3.vm.hostname = &quot;centos-3&quot;
+    c3.vm.box = &quot;centos/7&quot;
+    c3.vm.network &quot;public_network&quot;, bridge: &quot;Intel(R) Wi-Fi 6 AX200 160MHz&quot;
+    c3.vm.provider &quot;virtualbox&quot; do |vb|
+      vb.memory = &quot;2048&quot;
+      vb.cpus = 2
+      vb.name = &quot;k3s-3&quot;
+    end
+  end
+end
+</code></pre>
+<p>这里只配置了我需要的，其他配置项可以查看<a href="https://www.vagrantup.com/docs/index.html" target="_blank">官方文档</a></p>
+<p>等镜像下载完成之后，在命令行把路径切换到Vagrantfile所在的路径<br>
+运行<code>vagrant up</code><br>
+vagrant会按顺序启动三个虚拟机，如果端口没被其他程序占用的话，三个虚拟机的ssh端口应该分别是2222，2200，2201，<br>
+可以对照屏幕输出日志，其中有一句<code>SSH address: 127.0.0.1:2200</code></p>
+<p>正常情况应该是三个虚拟机都成功启动，然而我就遇到了非正常情况：<br>
+日志卡在<code>SSH auth method: private key</code>这一句几分钟之后提示超时，问题不大，比如我在启动c2的时候卡住，只需按顺序运行<code>vagrant halt c2</code> <code>vagrant destroy c2</code> <code>vagrant up c2</code> 来重新创建虚拟机即可，如果c3还没启动，那最后再运行一下<code>vagrant up</code>或者<code>vagrant up c3</code>。</p>
+<p>启动成功之后，可以运行<code>vagrant ssh c1</code> <code>vagrant ssh c2``vagrant ssh c3</code>来分别连接三台虚拟机，这里我对三个虚拟机分别进行了免密登录的配置之后就转到xshell进行操作了。</p>
+<p>这样我们就有了一个三台服务器的集群，如果配置够高，可以多加几台。<br>
+虚拟机自然是可以随便折腾的，只要Vagrantfile在，一个命令<code>vagrant up</code>即可重建。</p>
+]]></content>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[centos7初始化]]></title>
+        <id>https://glwlg.top/post/centos7-chu-shi-hua/</id>
+        <link href="https://glwlg.top/post/centos7-chu-shi-hua/">
+        </link>
+        <updated>2020-03-03T06:59:53.000Z</updated>
+        <content type="html"><![CDATA[<h1 id="替换yum源">替换yum源</h1>
+<pre><code>yum install wget
+#备份/etc/yum.repos.d/CentOS-Base.repo
+mv /etc/yum.repos.d/CentOS-Base.repo /etc/yum.repos.d/CentOS-Base.repo.backup
+#下载163的源
+wget http://mirrors.163.com/.help/CentOS7-Base-163.repo
+yum clean all
+yum makecache
+</code></pre>
+<h1 id="同步时间">同步时间</h1>
+<p>时间不同步,各种报错!</p>
+<h2 id="时区修改">时区修改</h2>
+<pre><code>cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
+</code></pre>
+<h2 id="安装ntpdate">安装ntpdate</h2>
+<pre><code>yum install ntpdate -y
+</code></pre>
+<h2 id="手动同步">手动同步</h2>
+<pre><code>ntpdate 1.cn.pool.ntp.org
+</code></pre>
+<h2 id="自动同步">自动同步</h2>
+<h3 id="先手动同步一次">先手动同步一次</h3>
+<h3 id="启用ntp服务">启用ntp服务</h3>
+<pre><code>#安装
+yum install ntp -y
+#修改配置
+vim /etc/ntp.conf
+
+driftfile /var/lib/ntp/drift
+restrict default nomodify notrap nopeer noquery
+restrict 127.0.0.1 
+restrict ::1
+restrict 172.18.5.0 mask 255.255.0.0 nomodify  #允许指定网段的ip来同步时间
+server 1.cn.pool.ntp.org
+server 2.cn.pool.ntp.org
+server 3.cn.pool.ntp.org
+server 0.cn.pool.ntp.org
+restrict 1.cn.pool.ntp.org nomodify notrap noquery  
+restrict 2.cn.pool.ntp.org nomodify notrap noquery  
+restrict 3.cn.pool.ntp.org nomodify notrap noquery  
+restrict 0.cn.pool.ntp.org nomodify notrap noquery 
+server 127.127.1.0
+fudge  127.127.1.0 stratum 10
+includefile /etc/ntp/crypto/pw
+keys /etc/ntp/keys
+
+#开启服务
+systemctl enable ntpd
+systemctl start ntpd
+</code></pre>
+<h3 id="定时任务">定时任务</h3>
+<pre><code>#其他服务器向一台服务器同步
+vim /etc/crontab
+50  4  *  *  * root ntpdate 172.18.5.102
+</code></pre>
+<h1 id="升级内核">升级内核</h1>
+<h2 id="yum更新">yum更新</h2>
+<pre><code>yum update -y
+</code></pre>
+<h2 id="查看内核版本">查看内核版本</h2>
+<pre><code>cat /etc/redhat-release
+#CentOS Linux release 7.3.1611 (Core)
+</code></pre>
+<h2 id="安装">安装</h2>
+<pre><code>rpm --import https://www.elrepo.org/RPM-GPG-KEY-elrepo.org
+rpm -Uvh http://www.elrepo.org/elrepo-release-7.0-2.el7.elrepo.noarch.rpm
+yum --enablerepo=elrepo-kernel install kernel-ml -y
+#查看内核是否安装成功
+rpm -qa | grep kernel
+</code></pre>
+<p>更新 grub 系统引导文件并重启</p>
+<pre><code>egrep ^menuentry /etc/grub2.cfg | cut -f 2 -d \'
+grub2-set-default 0  #default 0表示第一个内核设置为默认运行, 选择最新内核就对了
+reboot
+#开机后 uname -r 看看是不是内核4.9
+</code></pre>
+]]></content>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[常用命令]]></title>
+        <id>https://glwlg.top/post/chang-yong-ming-ling/</id>
+        <link href="https://glwlg.top/post/chang-yong-ming-ling/">
+        </link>
+        <updated>2020-03-03T06:47:11.000Z</updated>
+        <content type="html"><![CDATA[<h1 id="docker">Docker</h1>
+<pre><code>docker start $(docker ps -a|grep Exited|awk '{print $1}')
+
+docker restart $(docker ps -a|grep Exited|awk '{print $1}')
+docker pause $(docker ps -a|awk '{print $1}')
+docker unpause $(docker ps -a|awk '{print $1}')
+
+
+打出所有容器的日志文件
+docker inspect $(docker ps -a|awk '{print $1}'|sed '1d;$d') | grep json.log |awk '{print $2}'|sed 's/&quot;//g'|sed 's/,//g'
+清空日志
+docker inspect $(docker ps -a|awk '{print $1}'|sed '1d;$d') | grep json.log |awk '{print $2}'|sed 's/&quot;//g'|sed 's/,//g'|xargs truncate -s 0
+
+
+docker restart $(docker ps -a|grep service|awk '{print $1}')
+docker restart $(docker ps -a|grep web|awk '{print $1}')
+</code></pre>
+<blockquote>
+<p>删除过期镜像</p>
+</blockquote>
+<pre><code>docker rmi $(docker images -a |grep $REGISTRY/$PROJECT|grep '&lt;none&gt;'|awk '{print $3}')
+</code></pre>
+<h1 id="maven">Maven</h1>
+<h2 id="单独的jar包入库">单独的jar包入库</h2>
+<h3 id="install">install</h3>
+<pre><code>mvn install:install-file -Dfile=./abc-0.10.0-jar.jar-DgroupId=com.xxxx -DartifactId=artifactid -Dversion=0.0.1-SNAPSHOT -Dpackaging=jar
+mvn install:install-file -Dfile=D:/abc-0.10.0-sources.jar -DgroupId=net.spy -DartifactId=artifactid -Dversion=0.0.1-SNAPSHOT -Dpackaging=jar -Dclassifier=sources
+</code></pre>
+<h3 id="deploy">deploy</h3>
+<pre><code>mvn deploy:deploy-file -DgroupId=com.xxxx -DartifactId=artifactid -Dversion=0.0.1-SNAPSHOT -Dpackaging=jar -Dfile=./jar-0.0.1-SNAPSHOT.jar -Durl=http://admin:password@ip:18000/nexus/content/repositories/snapshots
+</code></pre>
+<h1 id="firewalld">firewalld</h1>
+<pre><code>systemctl start firewalld
+firewall-cmd --zone=public --add-port=31415/tcp --permanent
+firewall-cmd --reload
+firewall-cmd --permanent --add-rich-rule=&quot;rule family=&quot;ipv4&quot; source address=&quot;172.18.5.246&quot; port protocol=&quot;tcp&quot; port=&quot;2375&quot; accept&quot;
+firewall-cmd --permanent --add-rich-rule=&quot;rule family=&quot;ipv4&quot; source address=&quot;172.18.5.0/24&quot; port protocol=&quot;tcp&quot; port=&quot;2377&quot; accept&quot;
+firewall-cmd --permanent --remove-rich-rule=&quot;rule family=&quot;ipv4&quot; destination address=&quot;172.18.5.0/24&quot; port protocol=&quot;tcp&quot; port=&quot;2375&quot; reject&quot;
+
+
+systemctl start firewalld
+firewall-cmd --zone=public --add-port=31415/tcp --permanent
+firewall-cmd --reload
+systemctl restart 
+
+firewall-cmd --permanent --zone=public --add-rich-rule=&quot;rule family=&quot;ipv4&quot; source address=&quot;192.168.10.0/24&quot; service name=&quot;ssh&quot; reject&quot; 
+firewall-cmd --permanent --zone=public --add-rich-rule=&quot;rule family=&quot;ipv4&quot; source address=&quot;192.168.0.4/24&quot; port protocol=&quot;tcp&quot; port=&quot;8080&quot; accept&quot;
+firewall-cmd --permanent --remove-rich-rule=&quot;rule family=&quot;ipv4&quot; destination address=&quot;172.18.5.0/24&quot; port protocol=&quot;tcp&quot; port=&quot;2375&quot; reject&quot;
+firewall-cmd --reload
+
+iptables -L -n
+
+firewall-cmd --permanent --zone=trusted --add-interface=docker0
+firewall-cmd --permanent --zone=trusted --add-port=xxxx/tcp
+firewall-cmd --permanent --zone=trusted --add-port=2377/tcp
+firewall-cmd --reload
+
+</code></pre>
+<h1 id="iptables">iptables</h1>
+<pre><code>在Chain INPUT添加禁止80端口的访问
+iptables -I INPUT -p tcp --dport 80 -j DROP
+允许172.18.5.70访问80
+iptables -I INPUT -s 172.18.5.70 -p tcp --dport 80 -j ACCEPT
+
+在Chain DOCKER添加禁止80端口的访问(docker打开的端口要用这个)
+iptables -I DOCKER -p tcp --dport 80 -j DROP
+iptables -D DOCKER -p tcp --dport 80 -j DROP
+
+DROP是等着超时,REJECT是马上返回拒绝(现在用这个)
+iptables -I DOCKER -p tcp --dport 80 -j REJECT --reject-with tcp-reset
+iptables -D DOCKER -p tcp --dport 80 -j REJECT --reject-with tcp-reset
+允许内网访问
+iptables -D DOCKER -s 172.18.5.0/24 -p tcp --dport 80 -j ACCEPT
+iptables -I DOCKER -s 172.18.5.0/24 -p tcp --dport 80 -j ACCEPT
+
+</code></pre>
+<pre><code>重定向
+iptables -t nat -A PREROUTING -p tcp -m multiport --dport 80,8080 -j DNAT --to 172.18.5.242:80
+
+iptables -t nat -D PREROUTING -p tcp -m multiport --dport 80,8080 -j DNAT --to 172.18.5.242:80
+</code></pre>
+<p>#redis<br>
+停止所要删除的sentinel<br>
+发送一个SENTINEL RESET * 命令给所有其它的sentinel实例，如果你想要重置指定master上面的sentinel，只需要把*号改为特定的名字，注意，需要一个接一个发，每次发送的间隔不低于30秒。<br>
+检查一下所有的sentinels是否都有一致的当前sentinel数。使用SENTINEL MASTER mastername 来查询。</p>
+<p>#yum_rpm</p>
+<pre><code>搜索已安装的
+rpm -qa |grep kuber
+搜索yum
+yum list kubernetes-cni.x86_64  --showduplicates |sort -r
+</code></pre>
+<h1 id="压力测试">压力测试</h1>
+<pre><code>#请求100次,每次10并发
+ab -c 10 -n 100 -p fddata.txt -T application/json http://api.xxxx.com/api
+</code></pre>
+<h1 id="邮件发送">邮件发送</h1>
+<pre><code>wget http://caspian.dotconf.net/menu/Software/SendEmail/sendEmail-v1.56.tar.gz
+tar -xf sendEmail-v1.56.tar.gz
+mv sendEmail-v1.56/sendEmail /usr/local/bin/
+
+sendEmail -s &quot;smtp地址&quot; -xu &quot;发送人账号&quot; -xp &quot;密码&quot; -f &quot;来自XX&quot; -t &quot;收件人&quot; -u &quot;标题&quot; -m &quot;内容&quot; -o message-content-type=text -o message-charset=gb2312
+</code></pre>
+]]></content>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[centos安装docker]]></title>
+        <id>https://glwlg.top/post/centos-an-zhuang-docker/</id>
+        <link href="https://glwlg.top/post/centos-an-zhuang-docker/">
+        </link>
+        <updated>2020-03-03T02:32:45.000Z</updated>
+        <content type="html"><![CDATA[<h1 id="step-1-安装必要的一些系统工具">step 1: 安装必要的一些系统工具</h1>
+<p><code>sudo yum install -y yum-utils device-mapper-persistent-data lvm2</code></p>
+<h1 id="step-2-添加软件源信息">Step 2: 添加软件源信息</h1>
+<p><code>sudo yum-config-manager --add-repo http://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo</code></p>
+<h1 id="step-3-更新并安装-docker-ce">Step 3: 更新并安装 Docker-CE</h1>
+<pre><code>sudo yum makecache fast
+yum list docker-ce.x86_64 --showduplicates | sort -r
+sudo yum -y install docker-ce-17.03.2.ce-1.el7.centos
+</code></pre>
+<h2 id="如果报错selinux">如果报错selinux</h2>
+<pre><code>yum install https://download.docker.com/linux/centos/7/x86_64/stable/Packages/docker-ce-selinux-17.03.2.ce-1.el7.centos.noarch.rpm 
+</code></pre>
+<h2 id="docker配置-etcdockerdaemonjson">docker配置 /etc/docker/daemon.json</h2>
+<pre><code>{
+	&quot;hosts&quot;: [
+		&quot;tcp://172.16.124.69:2375&quot;,
+		&quot;unix:///var/run/docker.sock&quot;
+	],
+    &quot;registry-mirrors&quot;: [
+	&quot;https://xxxxx.mirror.aliyuncs.com&quot;
+	]
+, &quot;live-restore&quot;: true
+}
+</code></pre>
+<p>registry-mirrors：配置一个国内镜像，这里用的是阿里云的地址，每个帐号都有自己的专属地址，免费的<br>
+<a href="/post/docker-pei-zhi/">live-restore说明</a></p>
+]]></content>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[docker配置]]></title>
+        <id>https://glwlg.top/post/docker-pei-zhi/</id>
+        <link href="https://glwlg.top/post/docker-pei-zhi/">
+        </link>
+        <updated>2020-03-03T02:30:54.000Z</updated>
+        <content type="html"><![CDATA[<h2 id="重启docker而不重启容器">重启docker而不重启容器</h2>
+<p>在<code>/etc/docker/daemon.json</code>中添加<code>&quot;live-restore&quot;: true</code>选项<br>
+确保<code>/usr/lib/systemd/system/docker.service</code>中有<code>KillMode=process</code></p>
+<blockquote>
+<p>ps:和swarm冲突</p>
+</blockquote>
+]]></content>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[基于docker的gitlab搭建]]></title>
+        <id>https://glwlg.top/post/ji-yu-docker-de-gitlab-da-jian/</id>
+        <link href="https://glwlg.top/post/ji-yu-docker-de-gitlab-da-jian/">
+        </link>
+        <updated>2020-03-03T02:20:39.000Z</updated>
+        <content type="html"><![CDATA[<blockquote>
+<p>postgresql</p>
+</blockquote>
+<pre><code>docker run --name gitlab-postgresql -d \
+--env 'DB_NAME=gitlabhq_production' \
+--env 'DB_USER=gitlab' --env 'DB_PASS=password' \
+--env 'DB_EXTENSION=pg_trgm' \
+--volume /srv/docker/gitlab/postgresql:/var/lib/postgresql \
+--log-driver json-file --log-opt max-size=100M --log-opt max-file=1 \
+--restart always \
+sameersbn/postgresql:9.6-2
+</code></pre>
+<blockquote>
+<p>redis</p>
+</blockquote>
+<pre><code>docker run --name gitlab-redis -d \
+--volume /srv/docker/gitlab/redis:/var/lib/redis \
+--log-driver json-file --log-opt max-size=100M --log-opt max-file=1 \
+--restart always \
+sameersbn/redis:latest
+</code></pre>
+<blockquote>
+<p>env-file</p>
+</blockquote>
+<pre><code>GITLAB_PORT=80
+GITLAB_SSH_PORT=22
+GITLAB_SECRETS_DB_KEY_BASE=xxxxxxxxxxxxxxxxxxxxxxxx
+GITLAB_SECRETS_SECRET_KEY_BASE=xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+GITLAB_SECRETS_OTP_KEY_BASE=xxxxxxxxxxxxxxxxxxxxxxxx
+GITLAB_HOST=git.xxxx.com
+SMTP_ENABLED=true
+SMTP_DOMAIN=smtp.mxhichina.com
+SMTP_HOST=smtp.mxhichina.com
+SMTP_PORT=25
+SMTP_USER=devops@xxxx.com
+SMTP_PASS=xxxxx
+SMTP_AUTHENTICATION=login
+SMTP_STARTTLS=true
+SMTP_TLS=false
+TZ=Asia/Shanghai
+GITLAB_TIMEZONE=Beijing
+</code></pre>
+<blockquote>
+<p>gitlab</p>
+</blockquote>
+<pre><code>docker run --name gitlab -d \
+--link gitlab-postgresql:postgresql --link gitlab-redis:redisio \
+--publish 22:22/tcp --publish 80:80/tcp \
+--env-file /srv/docker/gitlab/env-file \
+--volume /srv/docker/gitlab/gitlab:/home/git/data \
+--log-driver json-file --log-opt max-size=100M --log-opt max-file=1 \
+--restart always \
+--memory 3g \
+--memory-swap 3g \
+sameersbn/gitlab:11.8.0
+</code></pre>
+<blockquote>
+<p>备份</p>
+</blockquote>
+<pre><code>#!/bin/bash
+#defined
+NAME=git-bak`date +%Y%m%d%H%M%S`
+
+cd /srv/docker/
+rm bak-gitlab/* -rf
+cp -R gitlab/. bak-gitlab/
+tar -czf $NAME.tar.gz  bak-gitlab/
+scp -P 31415 $NAME.tar.gz root@172.18.5.229:/srv/docker/gitlab/
+rm $NAME.tar.gz -rf
+</code></pre>
+<blockquote>
+<p>gitlab-ci-multi-runner</p>
+</blockquote>
+<pre><code>gitlab-ci-multi-runner register \
+	--url &quot;http://git.xxxx.com/ci&quot; \
+	--registration-token &quot;yWxaTf982qBqjnDU8ZiB&quot; \
+	--description &quot;centos-228&quot; \
+	--executor &quot;shell&quot; \
+	--env &quot;M2_HOME=/home/gitlab-runner/maven/apache-maven-3.3.9&quot;
+</code></pre>
+]]></content>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[haproxy做https代理]]></title>
+        <id>https://glwlg.top/post/haproxy-zuo-https-dai-li/</id>
+        <link href="https://glwlg.top/post/haproxy-zuo-https-dai-li/">
+        </link>
+        <updated>2020-03-03T02:13:07.000Z</updated>
+        <content type="html"><![CDATA[<p>由于服务运行在内网,无法直接访问外网（机房问题）,需要调用外网接口的域名需要通过haproxy代理<br>
+之前代理的几个地址都是http协议,这次一个服务需要访问几个https的域名.<br>
+按照之前一样的配置发现无法连通,因为haproxy的http模式是不支持https的.<br>
+查找之后知道要用tcp模式来代理https,可行.<br>
+http模式的时候可以直接根据域名来判定代理指向哪里,而tcp无法直接获取域名来判断,<br>
+这样只能每个需要代理的域名都占用一台外网机器(因为代理的是相同的端口),临时方案.<br>
+最后找到一个haproxy的配置,可以通过req_ssl_sni来判断https的域名,结束</p>
+]]></content>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[网关与dubbo的测试]]></title>
+        <id>https://glwlg.top/post/wang-guan-yu-dubbo-de-ce-shi/</id>
+        <link href="https://glwlg.top/post/wang-guan-yu-dubbo-de-ce-shi/">
+        </link>
+        <updated>2020-03-03T02:09:10.000Z</updated>
+        <content type="html"><![CDATA[<p>gateway 线程大于 service 提供的线程数 其他消费者可以正常使用<br>
+actives 决定最大并发数量<br>
+connections 决定保持的连接数</p>
+<p>actives 1    connections 10  不并发<br>
+actives 10   connections 1   并发<br>
+actives 10   connections 10  并发</p>
+<p>1.service的线程打开就不会自动关掉<br>
+2.gateway每次订阅都会使service产生新的线程,直到达到设置的上限 (删掉zk上的订阅也没用,service重启也会马上打开累计数量的线程)<br>
+(gateway和service都重启线程才会正常)<br>
+3.destroy旧订阅也会使线程增加(增加数为上次订阅的connections)<br>
+4.不destroy旧订阅,直接订阅新的不会产生新线程,但是新订阅也不会生效</p>
+<p>5.如果gateway订阅的线程数小于service上限,并发的时候service会一直打开线程直到上限<br>
+也就是说dubbo会优先打开新线程,而非复用</p>
+<p>6.如果gateway设置的actives小于service开启的线程,执行操作的线程不会超过actives</p>
+<p>默认上限200</p>
+<p>main方法中:<br>
+循环订阅并且destroy,内存不会上涨(connections大的时候会来不及回收,内存会轻微增加)<br>
+循环订阅不destroy,内存按连接数上涨<br>
+dubbo会留一些线程维持zk的连接(猜测)</p>
+]]></content>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[记一次木马来源发现过程]]></title>
+        <id>https://glwlg.top/post/ji-yi-ci-mu-ma-lai-yuan-fa-xian-guo-cheng/</id>
+        <link href="https://glwlg.top/post/ji-yi-ci-mu-ma-lai-yuan-fa-xian-guo-cheng/">
+        </link>
+        <updated>2020-03-03T02:01:35.000Z</updated>
+        <content type="html"><![CDATA[<p>发现一台服务器cpu使用过高，怀疑中毒</p>
+<p>因为不是面向用户的服务器，所以首先排除已知ip<br>
+<code>netstat -net |awk '{print $5}' | grep -v 14.18.242. | grep -v 172.18.5</code></p>
+<p>发现未知ip:52.202.51.185</p>
+<p>打出pid<br>
+netstat -net -p | grep 52.202.51.185</p>
+<p>找出运行来源<br>
+ps -ef | grep 645</p>
+<p>发现来自Jenkins，是一个挖坑木马利用了Jenkins的漏洞</p>
+<p>定位到木马所在位置，杀掉进程，删除木马文件，关闭Jenkins，关闭Jenkins外网端口，改为通过VPN访问内网端口。</p>
+<p>修改jenkins为内网<br>
+vim  /etc/init.d/jenkins</p>
+<pre><code>JAVA_CMD=&quot;$JENKINS_JAVA_CMD $JENKINS_JAVA_OPTIONS -DJENKINS_HOME=$JENKINS_HOME -jar $JENKINS_WAR --httpListenAddress=172.18.5.228&quot;
+</code></pre>
+<p><code>systemctl daemon-reload</code></p>
+]]></content>
+    </entry>
+</feed>

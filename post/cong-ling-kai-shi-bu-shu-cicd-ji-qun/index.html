@@ -1,0 +1,1108 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="keywords" content="docker，linux">
+<meta name="description" content="温故而知新">
+<meta name="theme-color" content="#000">
+<title>从零开始部署CICD集群 | 我的笔记</title>
+<link rel="shortcut icon" href="https://glwlg.top/favicon.ico?v=1681272507278">
+<link rel="stylesheet" href="https://glwlg.top/styles/main.css">
+
+<link rel="stylesheet" href="/media/css/mist.css">
+
+<link rel="stylesheet" href="/media/fonts/font-awesome.css">
+<link href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic|Rosario:300,300italic,400,400italic,700,700italic|PT Mono:300,300italic,400,400italic,700,700italic&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+
+<link href="/media/hljs/styles/androidstudio.css" rel="stylesheet">  
+
+<script src="/media/hljs/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.0/velocity.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.0/velocity.ui.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.11.1/dist/katex.min.css" integrity="sha384-zB1R0rpPzHqg7Kpt0Aljp8JPLqbXI3bhnPWROx27a9N0Ll6ZP/+DiW/UqRcLbRjq" crossorigin="anonymous">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.11.1/dist/katex.min.js" integrity="sha384-y23I5Q6l+B6vatafAwxRu/0oK/79VlbSz7Q9aiSZUvyWYIYsd+qj+o24G5ZU2zJz" crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.11.1/dist/contrib/auto-render.min.js" integrity="sha384-kWPLUVMOks5AQFrykwIup5lo0m3iMkkHrD0uJ4H5cjeGihAutqP0yW0J6dpFiVkI" crossorigin="anonymous"
+    onload="renderMathInElement(document.body);"></script>
+
+    <meta name="description" content="从零开始部署CICD集群" />
+    <meta name="keywords" content="" />
+  </head>
+  <body>
+    <div class="head-top-line"></div>
+    <div class="header-box">
+      
+<div class=" mist">
+  <header class="header bg-color ">
+    <div class="blog-header box-shadow-wrapper  " id="header">
+      <div class="nav-toggle" id="nav_toggle">
+        <div class="toggle-box">
+          <div class="line line-top"></div>
+          <div class="line line-center"></div>
+          <div class="line line-bottom"></div>
+        </div>
+      </div>
+      <div class="site-meta">       
+        <div class="site-title">
+          
+            <a href="/" class="">
+              <span class="logo-line-before">
+                <i class=""></i>
+              </span>
+              <span class="main-title">我的笔记</span>
+              <span class="logo-line-after">
+                <i class=""></i>
+              </span>
+            </a>  
+          
+        </div>
+        
+      </div>
+      <nav class="site-nav" id="site_nav">
+        <ul id="nav_ul">
+          
+            <li class="nav-item ">
+              
+                <a href="/">
+                  <i class="fa fa-home"></i> 首页
+                </a>
+              
+            </li>
+          
+            <li class="nav-item ">
+              
+                <a href="/archives">
+                  <i class="fa fa-archive"></i> 归档
+                </a>
+              
+            </li>
+          
+            <li class="nav-item ">
+              
+                <a href="/tags">
+                  <i class="fa fa-tags"></i> 标签
+                </a>
+              
+            </li>
+          
+            <li class="nav-item ">
+              
+                <a href="/post/about">
+                  <i class="fa fa-user"></i> 关于
+                </a>
+              
+            </li>
+          
+          <li class="nav-item">
+            <a>
+              <i class="fa fa-search"></i> 搜索
+            </a>
+          </li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+</div>
+
+<script type="text/javascript"> 
+ 
+  let showNav = true;
+
+  let navToggle = document.querySelector('#nav_toggle'),
+  siteNav = document.querySelector('#site_nav');
+  
+  function navClick() {
+    let sideBar = document.querySelector('.sidebar');
+    let navUl = document.querySelector('#nav_ul');
+    navToggle.classList.toggle('nav-toggle-active');
+    siteNav.classList.toggle('nav-menu-active');
+    if (siteNav.classList.contains('nav-menu-active')) {
+      siteNav.style = "height: " + (navUl.children.length * 42) +"px !important";
+    } else {
+      siteNav.style = "";
+    }
+  }
+
+  navToggle.addEventListener('click',navClick);  
+</script>
+    </div>
+    <div class="main-continer">
+      
+      <div class="section-layout mist bg-color">
+        <div class="section-layout-wrapper">
+          
+
+<div class="sidebar">
+    <div class="sidebar-box box-shadow-wrapper  right-motion" id="sidebar">
+      
+        <div class="post-list-sidebar">
+          <div class="sidebar-title">
+            <span id="tocSideBar" class="sidebar-title-item sidebar-title-active">文章目录</span>
+            <span id="metaSideBar" class="sidebar-title-item">站点概览</span>
+          </div>
+        </div>
+      
+      <div class="sidebar-body mist" id="sidebar_body">
+        
+          <div class="post-side-meta" id="post_side_meta">
+            
+<div class="sidebar-wrapper box-shadow-wrapper ">
+  <div class="sidebar-item">
+    <img class="site-author-image right-motion" src="https://glwlg.top/images/avatar.png"/>
+    <p class="site-author-name">我的笔记</p>
+    <p class="site-description right-motion">一些笔记</p>
+  </div>
+  <div class="sidebar-item side-item-stat right-motion">
+    <div class="sidebar-item-box">
+      <a href="/archives/">
+        
+        <span class="site-item-stat-count">25</span>
+        <span class="site-item-stat-name">文章</span>
+      </a>
+    </div>
+    <div class="sidebar-item-box">
+      <a href="">
+        <span class="site-item-stat-count">20</span>
+        <span class="site-item-stat-name">分类</span>
+      </a>
+    </div>
+    <div class="sidebar-item-box">
+      <a href="/tags/">
+        <span class="site-item-stat-count">20</span>
+        <span class="site-item-stat-name">标签</span>
+      </a>
+    </div>
+  </div>
+  
+  
+
+
+</div>
+          </div>
+          <div class="post-toc sidebar-body-active" id="post_toc" style="opacity: 1;">
+            <div class="toc-box right-motion">
+  <div class="toc-wrapper auto-number compress" id="toc_wrapper">
+    <ul class="markdownIt-TOC">
+<li><a href="#%E4%BB%8E%E9%9B%B6%E5%BC%80%E5%A7%8B%E9%83%A8%E7%BD%B2cicd%E9%9B%86%E7%BE%A4">从零开始部署CICD集群</a>
+<ul>
+<li><a href="#%E5%9F%BA%E7%A1%80%E7%8E%AF%E5%A2%83%E6%89%80%E6%9C%89%E8%8A%82%E7%82%B9">基础环境,所有节点</a></li>
+<li><a href="#docker%E9%9B%86%E7%BE%A4%E9%85%8D%E7%BD%AE">docker集群配置</a></li>
+<li><a href="#gitlab%E9%83%A8%E7%BD%B2c1%E8%8A%82%E7%82%B9">gitlab部署，c1节点</a></li>
+<li><a href="#docker%E9%95%9C%E5%83%8F%E4%BB%93%E5%BA%93%E9%83%A8%E7%BD%B2c1%E8%8A%82%E7%82%B9">Docker镜像仓库部署，c1节点</a></li>
+<li><a href="#jenkins%E9%83%A8%E7%BD%B2c1%E8%8A%82%E7%82%B9">jenkins部署，c1节点</a></li>
+<li><a href="#%E9%A1%B9%E7%9B%AE%E9%85%8D%E7%BD%AE">项目配置</a>
+<ul>
+<li><a href="#%E9%A1%B9%E7%9B%AE%E5%87%86%E5%A4%87">项目准备</a></li>
+<li><a href="#gitlab%E9%85%8D%E7%BD%AE">gitlab配置</a></li>
+<li><a href="#jenkins%E9%85%8D%E7%BD%AE">Jenkins配置</a></li>
+<li><a href="#%E5%88%9B%E5%BB%BA%E9%A1%B9%E7%9B%AE">创建项目</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  </div>
+</div>
+
+<script>
+
+let lastTop = 0, lList = [], hList = [], postBody, lastIndex = -1; 
+let active = 'active-show', activeClass = 'active-current';
+let tocWrapper = document.querySelector('#toc_wrapper');
+let tocContent = tocWrapper.children[0];
+let autoNumber = tocWrapper&&tocWrapper.classList.contains('auto-number');
+
+function addTocNumber(elem, deep) {
+  if (!elem) {
+    return;
+  }
+  let prop = elem.__proto__;
+
+  if (prop === HTMLUListElement.prototype) {
+    for (let i = 0; i < elem.children.length; i++) {
+      addTocNumber(elem.children[i], deep + (i + 1) + '.');
+    }
+  } else if (prop === HTMLLIElement.prototype) {
+    // 保存li元素
+    lList.push(elem);
+    for (let i = 0; i < elem.children.length; i++) {
+      let cur = elem.children[i];
+      if (cur.__proto__ === HTMLAnchorElement.prototype) {
+        if (autoNumber) {
+          cur.text =  deep + ' ' + cur.text;
+        }
+      } else if (cur.__proto__ === HTMLUListElement.prototype) {
+        addTocNumber(cur, deep);
+      }
+    }
+  }
+}
+
+
+document.addEventListener('scroll', function(e) {
+  if (lList.length <= 0) {
+    return;
+  }
+  let scrollTop = document.scrollingElement.scrollTop;
+  let dir;
+
+  if (lastTop - scrollTop > 0) {
+    dir = 'up';
+  } else {
+    dir = 'down';
+  }
+
+  lastTop = scrollTop;
+  if (scrollTop <= 0) {
+    if (lastIndex >= 0 && lastIndex < hList.length) {
+      lList[lastIndex].classList.remove(activeClass);
+    }
+    return;
+  }
+
+  let current = 0, hasFind = false;
+  for (let i = 0; i < hList.length; i++) {
+    if (hList[i].offsetTop > scrollTop) {
+      current = i;
+      hasFind = true;
+      break;
+    }
+  }
+  if (!hasFind && scrollTop > lList[lList.length - 1].offsetTop) {
+    current = hList.length - 1;
+  } else {
+    current--;
+  }
+  if (dir === 'down') {
+    if (current > lastIndex) {
+      addActiveClass(current);
+      removeActiveClass(lastIndex) 
+      lastIndex = current;
+      removeParentActiveClass();
+      lList[current] && addActiveLiElemment(lList[current].parentElement,tocContent);
+    }
+  } else {
+    if (current < lastIndex) {
+      addActiveClass(current);
+      removeActiveClass(lastIndex);
+      lastIndex = current;
+      removeParentActiveClass();
+      lList[current] && addActiveLiElemment(lList[current].parentElement,tocContent);
+    }
+  }
+});
+
+function removeParentActiveClass() {
+  let parents = tocContent.querySelectorAll('.'+active)
+  parents.forEach(function(elem) {
+    elem.classList.remove(active);
+  });
+}
+
+function addActiveClass(index) {
+  if (index >= 0 && index < hList.length) {
+    lList[index].classList.add(activeClass);
+  }
+}
+
+function removeActiveClass(index) {
+  if (index >= 0 && index < hList.length) {
+    lList[index].classList.remove(activeClass);
+  }
+}
+
+function addActiveLiElemment(elem, parent) {
+  if (!elem || elem === parent) {
+    return;
+  } else {
+    if (elem.__proto__ === HTMLLIElement.prototype) {
+      elem.classList.add(active);
+    }
+    addActiveLiElemment(elem.parentElement, parent);
+  }
+}
+
+function showToc() {
+  if (tocWrapper) {
+    postBody = document.querySelector('#post_body');
+    for (let i = 0; i < postBody.children.length; i++) {
+      if (postBody.children[i].__proto__ === HTMLHeadingElement.prototype) {
+        hList.push(postBody.children[i]);
+      }
+    }
+    if (tocWrapper.classList.contains('compress')) {
+        tocContent.classList.add('closed');
+    } else if (tocWrapper.classList.contains('no_compress')){
+      tocContent.classList.add('expanded');
+    } else {
+      if (hList.length > 10) {
+        active = 'active-hidden'
+        tocContent.classList.add('closed');
+      } else {
+        tocContent.classList.add('expanded');
+      }
+    }
+  }
+}
+addTocNumber(tocContent, '');
+
+window.addEventListener('load', function() {
+  showToc();
+  document.querySelector('#sidebar').style='display: block;';
+  tocWrapper.classList.add('toc-active');
+  setTimeout(function() {
+    if ("createEvent" in document) {
+      let evt = document.createEvent("HTMLEvents");
+      evt.initEvent("scroll", false, true);
+      document.dispatchEvent(evt);
+    }
+    else {
+      document.fireEvent("scroll");
+    }
+  }, 500)
+})
+
+</script>
+          </div>
+        
+      </div>
+    </div>
+</div>
+<script>
+  const SIDEBAR_TITLE_ACTIVE = 'sidebar-title-active';
+  const SIDEBAR_BODY_ACTIVE = 'sidebar-body-active';
+  const SLIDE_UP_IN = 'slide-up-in';
+
+  let sidebar = document.querySelector('#sidebar'),
+  tocSideBar = document.querySelector('#tocSideBar'),
+  metaSideBar = document.querySelector('#metaSideBar'),
+  postToc = document.querySelector('#post_toc'),
+  postSiteMeta = document.querySelector('#post_side_meta'),
+  sidebarTitle = document.querySelector('.sidebar-title'),
+  sidebarBody = document.querySelector('#sidebar_body');
+
+  tocSideBar && tocSideBar.addEventListener('click', (e) => {
+    toggleSidebar(e);
+  });
+
+  metaSideBar && metaSideBar.addEventListener('click', (e) => {
+    toggleSidebar(e);
+  });
+
+  function toggleSidebar(e) {
+    let currentTitle = document.querySelector("."+SIDEBAR_TITLE_ACTIVE);
+    if (currentTitle == e.srcElement) {
+      return ;
+    }
+    let current, showElement, hideElement;
+    if (e.srcElement == metaSideBar) {
+      showElement = postSiteMeta;
+      hideElement = postToc;
+    } else if (e.srcElement == tocSideBar){
+      showElement = postToc;
+      hideElement = postSiteMeta;
+    }
+    currentTitle.classList.remove(SIDEBAR_TITLE_ACTIVE);
+    e.srcElement.classList.add(SIDEBAR_TITLE_ACTIVE);
+
+    window.Velocity(hideElement, 'stop');
+    window.Velocity(hideElement, 'transition.slideUpOut', {
+      display: 'none',
+      duration: 200,
+      complete: function () {
+        window.Velocity(showElement, 'transition.slideDownIn', {
+          duration: 200
+        });
+      }
+    })
+    hideElement.classList.remove(SIDEBAR_BODY_ACTIVE);
+    showElement.classList.add(SIDEBAR_BODY_ACTIVE);
+  }
+
+  postToc.addEventListener('transitionend', function() {
+    this.classList.remove(SLIDE_UP_IN);
+  });
+
+
+  if (sidebarBody.classList.contains('pisces') || sidebarBody.classList.contains('gemini')) {
+    let hasFix = false;
+    let scrollEl = document.querySelector('.main-continer');
+    let limitTop = document.querySelector('#nav_ul').children.length * 42 + 162;
+    window.addEventListener('scroll', function(e) {
+    if (document.scrollingElement.scrollTop >= limitTop) {
+      if (!hasFix) {
+        sidebar.classList.add('sidebar-fixed');
+        hasFix = true;
+      }
+    } else {
+      if (hasFix) {
+        sidebar.classList.remove('sidebar-fixed');
+        hasFix = false;
+      }
+    }
+  });
+  }
+  
+</script>
+          <div class="section-box box-shadow-wrapper">
+            <div class="section bg-color post post-page">
+              <div class="article-box">
+    <header class="post-header">
+  <h1 class="post-title">
+    <a class="post-title-link" href="https://glwlg.top/post/cong-ling-kai-shi-bu-shu-cicd-ji-qun/">
+      从零开始部署CICD集群
+    </a>
+  </h1>
+  <div class="post-meta">
+    
+    <span class="meta-item pc-show">
+      <i class="fa fa-calendar-o"></i>
+      <span>发布于</span>
+      <span>2022-03-25</span>
+    </span>
+    
+    <span class="meta-item">
+      <i class="fa fa-clock-o"></i>
+      <span>11分钟</span>
+    </span>
+    <span class="meta-item">
+      <span class="post-meta-divider">|</span>
+      <i class="fa fa-file-word-o"></i>
+      <span>2259<span class="pc-show">字数</span></span>
+    </span>
+  </div>
+</header>
+</div>
+              <div class="post-body next-md-body" id="post_body">
+                <h1 id="从零开始部署cicd集群">从零开始部署CICD集群</h1>
+<p>记录一次从零开始部署一个基于docker的CICD集群，用的是centos7系统，涉及到的组件：docker,jenkins,gitlab,traefik,portainer。用了三台虚拟机（c1,c2,c3,其中c1为master节点)以root用户进行操作。</p>
+<p>虚拟机教程可以参考<a href="https://glwlg.github.io/post/yong-vagrant-zai-ben-di-yun-xing-k3s/">这篇</a></p>
+<h2 id="基础环境所有节点">基础环境,所有节点</h2>
+<ol>
+<li>更新系统基础环境<br>
+首先更新一下系统组件，安装一些必备的工具</li>
+</ol>
+<pre><code>yum update -y &amp;&amp; yum -y install vim bash-completion ntpdate wget git net-tools yum-utils &amp;&amp;  source /etc/profile.d/bash_completion.sh
+</code></pre>
+<ol start="2">
+<li>
+<p>同步时间，重要</p>
+<p><code>ntpdate 1.cn.pool.ntp.org</code></p>
+<p>vim /etc/crontab</p>
+<p>添加一行 <code>50 4 * * * root ntpdate [1.cn.pool.ntp.org](http://1.cn.pool.ntp.org/)</code></p>
+</li>
+<li>
+<p>安装docker</p>
+<p><a href="https://docs.docker.com/engine/install/centos/">官方文档</a></p>
+<pre><code>yum-config-manager \
+    --add-repo \
+    https://download.docker.com/linux/centos/docker-ce.repo
+#这里直接安装最新版(19.03.9)，如果需要低版本可以参考官方文档
+yum -y install docker-ce docker-ce-cli containerd.io
+#启用docker服务
+systemctl enable docker
+#启动docker
+systemctl start docker
+
+</code></pre>
+<ul>
+<li>
+<p>镜像加速</p>
+<p>国内网络环境拉去docker镜像比较慢，建议使用阿里云的镜像加速服务，是免费的，到阿里云的‘容器镜像服务’里找到‘镜像加速器’，有文档说明如何配置。</p>
+</li>
+</ul>
+</li>
+<li>
+<p>c1修改ssh端口号，22端口号后面会用到，先把ssh的改掉释放出来<br>
+向SELinux中添加端口：<code>semanage port -a -t ssh_port_t -p tcp 1022</code></p>
+<p><code>vim /etc/ssh/sshd_config</code>修改sshd配置，找到<code>#Port 22</code>这一行，把#去掉，再加一行<code>Port 1022</code></p>
+<p><code>systemctl restart sshd</code>重启sshd，重启没报错的话，用1022端口重新连接c1节点，</p>
+<p>再去把<code>Port 22</code>重新注释掉，再重启sshd，分两次操作是避免第一次重启失败导致无法连接</p>
+<p>ps: 如果用的是vagrant，修改ssh端口之后要去修改Vagrantfile，添加以下两行，否则下次虚拟机无法正常启动</p>
+<pre><code class="language-json">c1.vm.network :forwarded_port, guest: 1022,host: 2021
+c1.ssh.port = 2021
+</code></pre>
+</li>
+</ol>
+<h2 id="docker集群配置">docker集群配置</h2>
+<ol>
+<li>
+<p>初始化集群，c1节点<br>
+<code>docker swarm init --advertise-addr 172.28.128.5</code></p>
+<p><code>--advertise-addr</code>指定一个swarm使用的ip，一般是和其他节点在同一局域网的那个ip</p>
+</li>
+<li>
+<p>加入集群，c2，c3节点<br>
+直接运行上面init之后打印出来的<code>docker swarm join --token ...</code>命令即可</p>
+</li>
+<li>
+<p>部署portainer</p>
+<pre><code class="language-bash">curl -L https://downloads.portainer.io/portainer-agent-stack.yml -o portainer-agent-stack.yml
+docker stack deploy --compose-file=portainer-agent-stack.yml portainer
+</code></pre>
+</li>
+<li>
+<p>部署traefik</p>
+<p>先创建网络 <code>docker network create --driver overlay --attachable router-net</code></p>
+<ul>
+<li>
+<p>traefik主配置</p>
+<p><code>vim /srv/docker/traefik/traefik.yml</code></p>
+<pre><code class="language-yaml">log:
+  level: INFO
+accessLog:
+  format: &quot;common&quot;
+api:
+  dashboard: true
+  insecure: true
+entryPoints:
+  http:
+   address: &quot;:80&quot;
+  gitTcp:
+   address: &quot;:22&quot;
+providers:
+  file:
+    directory: /etc/traefik/config
+  docker:
+    endpoint: &quot;unix:///var/run/docker.sock&quot;
+    swarmMode: true
+    exposedbydefault: false
+</code></pre>
+<p><code>docker config create traefik.yml /srv/docker/traefik/traefik.yml</code></p>
+</li>
+<li>
+<p>gitlab的ssh配置</p>
+<p><code>vim /srv/docker/traefik/traefik_git.yml</code></p>
+<pre><code class="language-yaml">tcp:
+  services:
+    git-tcp-service:
+      loadBalancer:
+        servers:
+        - address: &quot;gitlab:22&quot;
+  routers:
+    git-tcp-router:
+        rule: &quot;HostSNI(`*`)&quot;
+        entryPoints:
+          - &quot;gitTcp&quot;
+        service: git-tcp-service
+
+</code></pre>
+<p><code>docker config create traefik_git.yml /srv/docker/traefik/traefik_git.yml</code></p>
+</li>
+<li>
+<p>路由配置</p>
+<p><code>vim /srv/docker/traefik/traefik_routers.yml</code></p>
+<pre><code class="language-yaml">http:
+  routers:
+    git-router:
+      rule: &quot;Host(`git.local.com`)&quot;
+      service: git-service
+  services:
+    git-service:
+      loadBalancer:
+        servers:
+        - url: &quot;http://gitlab:80&quot;
+</code></pre>
+<p><code>docker config create traefik_routers.yml /srv/docker/traefik/traefik_routers.yml</code></p>
+</li>
+<li>
+<p>运行</p>
+<pre><code class="language-bash">docker service create \
+--name traefik \
+--mode global \
+--constraint=node.role==manager \
+--publish &quot;mode=host,published=80,target=80&quot; \
+--publish &quot;mode=host,published=22,target=22&quot; \
+--publish &quot;mode=host,published=443,target=443&quot; \
+--publish &quot;mode=host,published=8580,target=8080&quot; \
+--config src=traefik.yml,target=&quot;/etc/traefik/traefik.yml&quot;  \
+--config src=traefik_git.yml,target=&quot;/etc/traefik/config/traefik_git.yml&quot;  \
+--config src=traefik_routers.yml,target=&quot;/etc/traefik/config/traefik_routers.yml&quot;  \
+--mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock \
+--network router-net \
+--with-registry-auth \
+--log-driver json-file --log-opt max-size=500M --log-opt max-file=1 \
+traefik:v2.2
+</code></pre>
+</li>
+<li>
+<p>更新配置文件的步骤</p>
+<pre><code class="language-bash">docker service update --config-rm traefik.yml traefik
+docker config rm traefik.yml
+docker config create traefik.yml ./traefik.yml
+docker service update --config-add  src=traefik.yml,target=&quot;/etc/traefik/config/traefik.yml&quot; traefik
+</code></pre>
+</li>
+<li>
+<p>补充说明</p>
+<p>这里traefik启用了swarm模式，所以不能通过自动发现的方式自动路由gitlab（除非gitlab也用docker service运行，这里是run），所以在providers里额外配置了file，以静态配置的形式配置了gitlab的路由，其他类似Jenkins之类的也可以如此配置。</p>
+</li>
+</ul>
+</li>
+</ol>
+<h2 id="gitlab部署c1节点">gitlab部署，c1节点</h2>
+<ol>
+<li>
+<p>首先创建三个文件夹</p>
+<pre><code class="language-bash">mkdir /srv/docker/gitlab/postgresql -p
+mkdir /srv/docker/gitlab/redis
+mkdir /srv/docker/gitlab/gitlab
+
+</code></pre>
+</li>
+<li>
+<p>运行postgresql</p>
+<pre><code class="language-bash">docker run --name gitlab-postgresql -d \
+--env 'DB_NAME=gitlabhq_production' \
+--env 'DB_USER=gitlab' --env 'DB_PASS=password' \
+--env 'DB_EXTENSION=pg_trgm' \
+--net router-net \
+--volume /srv/docker/gitlab/postgresql:/var/lib/postgresql \
+--log-driver json-file --log-opt max-size=100M --log-opt max-file=1 \
+--restart always \
+sameersbn/postgresql:10-2
+</code></pre>
+</li>
+<li>
+<p>运行redis</p>
+<pre><code class="language-bash">docker run --name gitlab-redis -d \
+--net router-net \
+--volume /srv/docker/gitlab/redis:/var/lib/redis \
+--log-driver json-file --log-opt max-size=100M --log-opt max-file=1 \
+--restart always \
+sameersbn/redis:4.0.9-2
+</code></pre>
+</li>
+<li>
+<p>编辑配置文件<br>
+vim /srv/docker/gitlab/env-file<br>
+其中三个SECRETS随机生成，smtp按需配置</p>
+<ul>
+<li>
+<p>env-file</p>
+<pre><code>GITLAB_PORT=80
+GITLAB_SSH_PORT=22
+GITLAB_SECRETS_DB_KEY_BASE=32位随机字符串
+GITLAB_SECRETS_SECRET_KEY_BASE=64位随机字符串
+GITLAB_SECRETS_OTP_KEY_BASE=64位随机字符串
+GITLAB_HOST=git.local.com
+SMTP_ENABLED=true
+SMTP_DOMAIN=smtp.mxhichina.com
+SMTP_HOST=smtp.mxhichina.com
+SMTP_PORT=25
+SMTP_USER=devops@xxxxx.com
+SMTP_PASS=password
+SMTP_AUTHENTICATION=login
+SMTP_STARTTLS=true
+SMTP_TLS=false
+TZ=Asia/Shanghai
+GITLAB_TIMEZONE=Beijing
+DB_HOST=gitlab-postgresql
+DB_NAME=gitlabhq_production
+DB_USER=gitlab
+DB_PASS=password
+REDIS_HOST=gitlab-redis
+
+</code></pre>
+</li>
+</ul>
+</li>
+<li>
+<p>运行gitlab</p>
+<pre><code class="language-bash">docker run --name gitlab -d \
+--net router-net \
+--env-file /srv/docker/gitlab/env-file \
+--volume /srv/docker/gitlab/gitlab:/home/git/data \
+--log-driver json-file --log-opt max-size=100M --log-opt max-file=1 \
+--restart always \
+--memory 3g \
+--memory-swap 3g \
+sameersbn/gitlab:12.10.6
+docker logs -f gitlab
+</code></pre>
+</li>
+</ol>
+<p>打开gitlab页面(<a href="http://git.local.com/">git.local.com</a>)，刚开始会显示502，等一会进去之后会要求修改密码，然后登录管理员帐户，默认邮箱是admin@example.com，进去之后就可以分配帐户创建项目了</p>
+<h2 id="docker镜像仓库部署c1节点">Docker镜像仓库部署，c1节点</h2>
+<p><a href="https://docs.docker.com/registry/">官方文档</a></p>
+<ol>
+<li>
+<p>运行</p>
+<pre><code class="language-yaml">docker run -d \
+-p 5000:5000 \
+--restart=always \
+--name registry \
+-v /srv/docker/registry:/var/lib/registry \
+--log-driver json-file --log-opt max-size=100M --log-opt max-file=1 \
+registry:2
+</code></pre>
+</li>
+<li>
+<p>配置</p>
+<p><code>vim /etc/docker/daemon.json</code> 全节点修改</p>
+<pre><code class="language-json">{
+&quot;registry-mirrors&quot;: [&quot;https://xxxxxxx.mirror.aliyuncs.com&quot;],
+&quot;insecure-registries&quot;:[&quot;172.28.128.5:5000&quot;]
+}
+</code></pre>
+<p><code>systemctl restart docker</code></p>
+</li>
+<li>
+<p>添加一个<a href="https://github.com/kwk/docker-registry-frontend">web管理服务</a>（可选）</p>
+<pre><code class="language-json">docker run \
+-d \
+-e ENV_DOCKER_REGISTRY_HOST=172.28.128.5 \
+-e ENV_DOCKER_REGISTRY_PORT=5000 \
+-p 8081:80 \
+--log-driver json-file --log-opt max-size=100M --log-opt max-file=1 \
+--restart=always \
+konradkleine/docker-registry-frontend:v2
+</code></pre>
+</li>
+</ol>
+<h2 id="jenkins部署c1节点">jenkins部署，c1节点</h2>
+<ol>
+<li>
+<p>创建目录</p>
+<pre><code class="language-bash">mkdir /srv/docker/jenkins/jenkins_home -p
+mkdir /srv/docker/jenkins/settings
+
+</code></pre>
+</li>
+<li>
+<p>运行</p>
+<pre><code class="language-bash">docker run -d --name jenkins \
+-p 8080:8080 \
+-p 50000:50000 \
+-u 0 \
+--restart always \
+--add-host git.local.com:172.28.128.5 \
+--log-driver json-file --log-opt max-size=100M --log-opt max-file=1 \
+-v /srv/docker/jenkins/jenkins_home:/var/jenkins_home:rw \
+-v /srv/docker/jenkins/settings:/var/settings:rw \
+-v /var/run/docker.sock:/var/run/docker.sock \
+-v $(which docker):/usr/bin/docker \
+jenkins/jenkins:lts
+</code></pre>
+</li>
+<li>
+<p>配置<br>
+打开jenkins页面(ip:8080),提示输入密码<br>
+运行以下命令即可看到<br>
+<code>cat /srv/docker/jenkins/jenkins_home/secrets/initialAdminPassword</code><br>
+然后选择配置插件，先选择默认，之后需要的再安装</p>
+</li>
+</ol>
+<h2 id="项目配置">项目配置</h2>
+<h3 id="项目准备">项目准备</h3>
+<p>一共有三个项目要准备</p>
+<ol>
+<li>
+<p>脚本项目</p>
+<p>在gitlab创建一个demo-script项目，用于发布项目，先添加一个脚本  !<br>
+![[update_springboot_traefik_swarm.groovy]]</p>
+</li>
+<li>
+<p>配置文件项目</p>
+<p>创建一个demo-config项目，用于存放不同环境的配置，文件结构就是</p>
+<p>demo-config/demo-service/application.properties #按自己项目配置</p>
+<p>demo-config/maven/maven.xml #maven私库配置，其中localRepository改成/var/.m2/repository</p>
+</li>
+<li>
+<p>服务项目</p>
+<p>这里我用了一个springboot的项目，demo-service，在项目根目录添加一个Dockerfile<br>
+![[Dockerfile]]</p>
+<p>在pom文件添加以下内容，这样结合我的发布脚本，maven编译的时候会取出demo-config里的application.properties文件替换项目里的</p>
+<pre><code class="language-json">&lt;profiles&gt;
+        &lt;profile&gt;
+            &lt;id&gt;configs&lt;/id&gt;
+            &lt;build&gt;
+                &lt;resources&gt;
+                    &lt;resource&gt;
+                        &lt;directory&gt;src/main/resources&lt;/directory&gt;
+                        &lt;excludes&gt;
+                            &lt;exclude&gt;application.properties&lt;/exclude&gt;
+                        &lt;/excludes&gt;
+                    &lt;/resource&gt;
+                    &lt;resource&gt;
+                        &lt;directory&gt;configs/demo-service/&lt;/directory&gt;
+                        &lt;filtering&gt;false&lt;/filtering&gt;
+                    &lt;/resource&gt;
+                &lt;/resources&gt;
+            &lt;/build&gt;
+        &lt;/profile&gt;
+    &lt;/profiles&gt;
+</code></pre>
+</li>
+</ol>
+<h3 id="gitlab配置">gitlab配置</h3>
+<p>首先添加一个deploy key，用于jenkins拉取项目</p>
+<figure data-type="image" tabindex="1"><img src="https://glwlg.top/post-images/1648201376830.png" alt="" loading="lazy"></figure>
+<p>这里需要我们生成一个key</p>
+<pre><code class="language-json">cd /srv/docker/jenkins/jenkins_home/secrets
+ssh-keygen -o -t rsa -b 4096 -C [&quot;email@example.com](mailto:%22email@example.com)&quot;
+#路径设置输入当前目录即可，后面两项可为空
+Enter file in which to save the key (/root/.ssh/id_rsa): ./deploy
+
+生成成功之后复制公钥deploy.pub里的内容填到gitlab
+</code></pre>
+<p>添加deploy key之后要在上面三个项目配置中启用这个key，项目主页→Settings→Repository→Deploy Keys→Privately accessible deploy keys→Enable</p>
+<h3 id="jenkins配置">Jenkins配置</h3>
+<p>打开Jenkins→凭据→系统→全局凭据→添加凭据，类型选择SSH Username with private key，id，Username都输入上一步gitlab设置的title即可，Private Key内容就是上一步生成的deploy文件内容，确定保存。</p>
+<p>打开Jenkins→系统管理→插件管理→可选插件 搜索dingTalk插件，安装钉钉通知插件。（不需要的可以不安装，需要把脚本里的dingTalk代码删掉，否则会报错）</p>
+<h3 id="创建项目">创建项目</h3>
+<p>新建一个流水线类型的项目</p>
+<p>勾选配置项”参数化构建过程“，并添加以下参数</p>
+<p><a href="https://www.notion.so/5e9c4c3193f14f5987da43dbda897e19">参数表</a></p>
+<p>然后拉到下面”流水线“模块，定义切换为Pipeline script from SCM，SCM选择git，填入脚本项目的仓库地址&quot;<a href="mailto:git@git.local.com">git@git.local.com</a>:demo/demo-script.git&quot;,Credentials选择deploy-key，脚本路径修改为&quot;update_springboot_traefik_swarm.groovy&quot;，保存。</p>
+<p>保存之后就可以点击&quot;Build with Parameters&quot;试一下发布了。</p>
+
+              </div>
+              <div class="post-footer">
+  <ul class="post-copyright">
+    <li class="post-copyright-author">
+      <strong>本文作者：</strong>
+      我的笔记
+    </li>
+    <li class="post-copyright-link">
+      <strong>本文链接：</strong>
+      <a href="https://glwlg.top/post/cong-ling-kai-shi-bu-shu-cicd-ji-qun/" title="从零开始部署CICD集群">从零开始部署CICD集群</a>
+    </li>
+    <li class="post-copyright-license">
+      <strong>版权声明： </strong>
+      本博客所有文章除特别声明外，转载请注明出处！
+    </li>
+  </ul>
+  <div class="tags">
+    
+  </div>
+  <div class="nav">
+    <div class="nav-prev">
+      
+    </div>
+    <div class="nav-next">
+      
+        <a class="nav-pc-next" title="用Vagrant搭建虚拟集群" href="https://glwlg.top/post/yong-vagrant-zai-ben-di-yun-xing-k3s/">用Vagrant搭建虚拟集群</a>
+        <a class="nav-mobile-next" title="用Vagrant搭建虚拟集群" href="https://glwlg.top/post/yong-vagrant-zai-ben-di-yun-xing-k3s/">下一篇</a>
+        <i class="fa fa-chevron-right"></i>
+      
+    </div>
+  </div>
+</div>
+              
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="footer-box">
+  <footer class="footer">
+    <div class="copyright">
+      © 2019-2020 theme by HsxyHao
+    </div>
+    <div class="poweredby">
+      Powered by <a href="https://github.com/getgridea/gridea" target="_blank">Gridea</a> </br>
+<a target="_blank" rel="noopener noreferrer" class="chakra-link line1 css-f4h6uy" href="https://beian.miit.gov.cn/">浙ICP备2022008290号-2</a>
+<script>
+var _hmt = _hmt || [];
+(function() {
+  var hm = document.createElement("script");
+  hm.src = "https://hm.baidu.com/hm.js?fd531c8be921dea9866df7182037ac91";
+  var s = document.getElementsByTagName("script")[0]; 
+  s.parentNode.insertBefore(hm, s);
+})();
+</script>
+
+    </div>
+  </footer>
+  
+  
+    <div class="drawer-box left" id="drawer_box">
+      <span class="muse-line muse-line-first"></span>
+      <span class="muse-line muse-line-middle"></span>
+      <span class="muse-line muse-line-last"></span>
+    </div>
+  
+  <div class="mist back-to-top" id="back_to_top">
+    <i class="fa fa-arrow-up"></i>
+    
+  </div>
+  
+  
+    <link rel="stylesheet" href="/media/live2d/histoire/css/live2d.css" />
+<div class="box-scale">
+  <div id="landlord" style="left:5px;bottom:0px;" data-key="">
+    <div class="message" style="opacity:0"></div>
+    <canvas id="live2d" width="500" height="560" class="live2d"></canvas>
+    <div class="live_talk_input_body">
+      <div class="live_talk_input_name_body">
+        <input name="name" type="text" class="live_talk_name white_input" id="AIuserName" autocomplete="off" placeholder="你的名字" />
+      </div>
+      <div class="live_talk_input_text_body">
+        <input name="talk" type="text" class="live_talk_talk white_input" id="AIuserText" autocomplete="off" placeholder="要和我聊什么呀？"/>
+        <button type="button" class="live_talk_send_btn" id="talk_send">发送</button>
+      </div>
+    </div>
+    <input name="live_talk" id="live_talk" value="1" type="hidden" />
+    <div class="live_ico_box">
+      <div class="live_ico_item type_info" id="showInfoBtn"></div>
+      <div class="live_ico_item type_talk" id="showTalkBtn"></div>
+      
+      <div class="live_ico_item type_youdu" id="youduButton"></div>
+      <div class="live_ico_item type_quit" id="hideButton"></div>
+      <input name="live_statu_val" id="live_statu_val" value="0" type="hidden" />
+      <audio src="" style="display:none;" id="live2d_bgm" data-bgm="0" preload="none"></audio>
+      <input id="duType" value="douqilai" type="hidden">
+      
+    </div>
+  </div>
+</div>
+<div id="open_live2d">召唤伊斯特瓦尔</div>
+<script type="text/javascript" src="https://apps.bdimg.com/libs/jquery/1.7.1/jquery.min.js"></script>
+<script>
+var message_Path = '/media/live2d/histoire/';
+let landlord = document.querySelector('#landlord');
+var apiKey = landlord.dataset.key;
+</script>
+<script type="text/javascript" src="/media/live2d/histoire/js/live2d.js"></script>
+<script type="text/javascript" src="/media/live2d/histoire/js/message.js"></script>
+  
+  
+</div>
+<script>
+
+  let sideBarOpen = 'sidebar-open';
+  let body = document.body;
+  let back2Top = document.querySelector('#back_to_top'),
+  back2TopText = document.querySelector('#back_to_top_text'),
+  drawerBox = document.querySelector('#drawer_box'),
+  rightSideBar = document.querySelector('.sidebar'),
+  viewport = document.querySelector('body');
+
+  function scrollAnimation(currentY, targetY) {
+   
+    let needScrollTop = targetY - currentY
+    let _currentY = currentY
+    setTimeout(() => {
+      const dist = Math.ceil(needScrollTop / 10)
+      _currentY += dist
+      window.scrollTo(_currentY, currentY)
+      if (needScrollTop > 10 || needScrollTop < -10) {
+        scrollAnimation(_currentY, targetY)
+      } else {
+        window.scrollTo(_currentY, targetY)
+      }
+    }, 1)
+  }
+
+  back2Top.addEventListener("click", function(e) {
+    scrollAnimation(document.scrollingElement.scrollTop, 0);
+    e.stopPropagation();
+    return false;
+  });
+  
+  window.addEventListener('scroll', function(e) {
+    let percent = document.scrollingElement.scrollTop / (document.scrollingElement.scrollHeight - document.scrollingElement.clientHeight) * 100;
+    if (percent > 1 && !back2Top.classList.contains('back-top-active')) {
+      back2Top.classList.add('back-top-active');
+    }
+    if (percent == 0) {
+      back2Top.classList.remove('back-top-active');
+    }
+    if (back2TopText) {
+      back2TopText.textContent = Math.floor(percent);
+    }
+  });
+
+  
+  let hasCacu = false;
+  window.onresize = function() {
+    if (window.width > 991) {
+      calcuHeight();
+    } else {
+      hasCacu = false;
+    }
+  }
+
+  function calcuHeight() {
+    // 动态调整站点概览高度
+    if (!hasCacu && back2Top.classList.contains('pisces') || back2Top.classList.contains('gemini')) {
+      let sideBar = document.querySelector('.sidebar');
+      let navUl = document.querySelector('#site_nav');
+      sideBar.style = 'margin-top:' + (navUl.offsetHeight + navUl.offsetTop + 15) + 'px;';
+      hasCacu = true;
+    }
+  }
+  calcuHeight();
+  
+  let open = false, MOTION_TIME = 300, RIGHT_MOVE_DIS = '320px';
+
+  if (drawerBox) {
+    let rightMotions = document.querySelectorAll('.right-motion');
+    let right = drawerBox.classList.contains('right');
+
+    let transitionDir = right ? "transition.slideRightIn" : "transition.slideLeftIn";
+
+    let openProp, closeProp;
+    if (right) {
+      openProp = {
+        paddingRight: RIGHT_MOVE_DIS 
+      };
+      closeProp = {
+        paddingRight: '0px'
+      };
+    } else {
+      openProp = {
+        paddingLeft: RIGHT_MOVE_DIS 
+      };
+      closeProp = {
+        paddingLeft: '0px'
+      };
+    }
+
+    drawerBox.onclick = function() {
+      open = !open;
+      window.Velocity(rightSideBar, 'stop');
+      window.Velocity(viewport, 'stop');
+      window.Velocity(rightMotions, 'stop');
+      if (open) {
+        window.Velocity(rightSideBar, {
+          width: RIGHT_MOVE_DIS
+        }, {
+          duration: MOTION_TIME,
+          begin: function() {
+            window.Velocity(rightMotions, transitionDir,{ });
+          }
+        })
+        window.Velocity(viewport, openProp,{
+          duration: MOTION_TIME
+        });
+      } else {
+        window.Velocity(rightSideBar, {
+          width: '0px'
+        }, {
+          duration: MOTION_TIME,
+          begin: function() {
+            window.Velocity(rightMotions, {
+              opacity: 0
+            });
+          }
+        })
+        window.Velocity(viewport, closeProp ,{
+          duration: MOTION_TIME
+        });
+      }
+      for (let i = 0; i < drawerBox.children.length; i++) {
+        drawerBox.children[i].classList.toggle('muse-line');
+      }
+      drawerBox.classList.toggle(sideBarOpen);
+    }
+  }
+
+  // 代码高亮
+  hljs.initHighlightingOnLoad();
+</script>
+    </div>
+  </body>
+  <script src="/media/js/motion.js"></script>
+</html>
